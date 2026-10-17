@@ -33,6 +33,10 @@ final class Prefs {
     /** test hook: forget the choice (next start follows the system again) */
     void resetDark() { p.edit().remove("dark").remove("theme").apply(); }
 
+    /** date format for every date shown (default DD/MM/YYYY) */
+    DateFmt dateFmt() { return DateFmt.of(p.getString("date_format", null)); }
+    void setDateFmt(DateFmt f) { p.edit().putString("date_format", f.name()).apply(); }
+
     boolean confirmBrowser() { return p.getBoolean("confirm_browser", true); }
     void setConfirmBrowser(boolean v) { p.edit().putBoolean("confirm_browser", v).apply(); }
 

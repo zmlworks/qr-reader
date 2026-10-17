@@ -2,6 +2,7 @@ package com.zmlworks.qrreader;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.robolectric.Shadows.shadowOf;
@@ -946,18 +947,124 @@ public class ScreensTest {
     @Test public void settingsOnceLineStartsAllCodes() throws Exception {
         Intent i = new Intent(RuntimeEnvironment.getApplication(), MainActivity.class).putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_SETTINGS);
         MainActivity m = Robolectric.buildActivity(MainActivity.class, i).setup().get();
-        View once = m.findViewById(R.id.set_once);
-        assertEquals("Scan non-QR once", ((TextView) m.findViewById(R.id.once_text)).getText().toString());
+        TextView once = m.findViewById(R.id.set_once);
+        assertEquals("[Scan non-QR once]", once.getText().toString());
+        assertEquals("normal text colour, not dimmed", m.getColor(R.color.text), once.getCurrentTextColor());
         layout(m);
-        // a normal row near the bottom, right above About (where Clear all history was)
-        android.view.ViewGroup col = (android.view.ViewGroup) once.getParent();
-        assertEquals(m.findViewById(R.id.set_about), col.getChildAt(col.indexOfChild(once) + 1));
+        // its row stays right above About (where it was); the text is centred and only it (+ ~10 dp) is tappable
+        View row = m.findViewById(R.id.set_once_row);
+        android.view.ViewGroup col = (android.view.ViewGroup) row.getParent();
+        assertEquals(m.findViewById(R.id.set_about), col.getChildAt(col.indexOfChild(row) + 1));
+        assertTrue(Math.abs(centerX(once) - W / 2) <= dp(m, 2));
+        assertTrue("wrap_content, not the row width: " + once.getWidth(), once.getWidth() < W / 2);
+        assertTrue(once.getPaddingLeft() >= dp(m, 8) && once.getPaddingLeft() <= dp(m, 12));
+        assertTrue(once.getPaddingTop() >= dp(m, 8) && once.getPaddingTop() <= dp(m, 12));
+        assertTrue(!row.isClickable());
+        // a tap at the left of the row (away from the text) does nothing
+        int[] loc = new int[2];
+        row.getLocationInWindow(loc);
+        long t = android.os.SystemClock.uptimeMillis();
+        float x = dp(m, 30), y = loc[1] + row.getHeight() / 2f;
+        m.getWindow().getDecorView().dispatchTouchEvent(android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, x, y, 0));
+        m.getWindow().getDecorView().dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 50, android.view.MotionEvent.ACTION_UP, x, y, 0));
+        ShadowLooper.idleMainLooper();
+        assertNull(shadowOf(m).getNextStartedActivity());
         assertTrue(once.isClickable());
         once.performClick();
         Intent next = shadowOf(m).getNextStartedActivity();
         assertEquals(ScannerActivity.class.getName(), next.getComponent().getClassName());
         assertTrue(next.getBooleanExtra(ScannerActivity.EXTRA_NON_QR, false));
         assertTrue(m.isFinishing());
+    }
+
+    // ---- 0.6.0 ----
+
+    @Test public void dateFormatSetting() throws Exception {
+        java.time.ZoneId z = java.time.ZoneId.systemDefault();
+        long t = java.time.LocalDateTime.of(2026, 10, 7, 9, 5, 3).atZone(z).toInstant().toEpochMilli();
+        h.clear();
+        h.addSingle("older", t - 86_400_000L * 40);
+        long id = h.addSingle("dated", t).id;
+        Intent i = new Intent(RuntimeEnvironment.getApplication(), MainActivity.class).putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_SETTINGS);
+        MainActivity m = Robolectric.buildActivity(MainActivity.class, i).setup().get();
+        layout(m);
+        View row = m.findViewById(R.id.set_date_format);
+        TextView value = m.findViewById(R.id.date_format_value);
+        assertEquals("default", "DD/MM/YYYY", value.getText().toString());
+        // one line: title on the left, value on the right, a normal row height
+        TextView title = (TextView) ((ViewGroup) row).getChildAt(0);
+        assertEquals("Date format", title.getText().toString());
+        assertEquals(1, title.getLineCount());
+        assertEquals(1, value.getLineCount());
+        assertTrue(centerX(value) > W / 2 && centerX(title) < W / 2);
+        assertTrue(Math.abs(centerY(value) - centerY(title)) <= dp(m, 2));
+        assertTrue(row.getHeight() <= dp(m, 64));
+        m.select(MainActivity.TAB_HISTORY);
+        layout(m);
+        SwipeListView list = m.findViewById(R.id.list);
+        assertEquals("07/10/2026 09:05", ((TextView) list.getChildAt(0).findViewById(R.id.row_sub)).getText().toString());
+        // tap cycles DD/MM/YYYY -> MM/DD/YYYY -> YYYY/MM/DD -> DD/MM/YYYY; everything follows
+        m.select(MainActivity.TAB_SETTINGS);
+        row.performClick();
+        assertEquals("MM/DD/YYYY", value.getText().toString());
+        assertEquals("10/07/2026 09:05", Actions.listTime(t));
+        row.performClick();
+        assertEquals("YYYY/MM/DD", value.getText().toString());
+        layout(m);
+        shot(m, "settings-date-format", null);
+        m.select(MainActivity.TAB_HISTORY);
+        layout(m);
+        assertEquals("2026/10/07 09:05", ((TextView) list.getChildAt(0).findViewById(R.id.row_sub)).getText().toString());
+        shot(m, "history-yyyymmdd", null);
+        // jump wheels: year, month, day
+        m.findViewById(R.id.btn_jump).performClick();
+        ShadowLooper.idleMainLooper();
+        AlertDialog d = m.historyPage.jumpDialog;
+        ViewGroup wheels = (ViewGroup) ((View) d.findViewById(R.id.jump_day).getParent()).getParent();
+        assertEquals(d.findViewById(R.id.jump_year).getParent(), wheels.getChildAt(0));
+        assertEquals(d.findViewById(R.id.jump_month).getParent(), wheels.getChildAt(1));
+        assertEquals(d.findViewById(R.id.jump_day).getParent(), wheels.getChildAt(2));
+        shot(m, "history-jump-yyyymmdd", null, d);
+        d.dismiss();
+        // detail page, with seconds
+        Intent di = new Intent(RuntimeEnvironment.getApplication(), DetailActivity.class).putExtra(DetailActivity.EXTRA_ID, id);
+        DetailActivity da = Robolectric.buildActivity(DetailActivity.class, di).setup().get();
+        assertTrue(textOf(da.getWindow().getDecorView()).contains("2026/10/07 09:05:03"));
+        row.performClick();
+        assertEquals("DD/MM/YYYY", value.getText().toString());
+        assertEquals("07/10/2026 09:05:03", Actions.longTime(t));
+    }
+
+    /** all the text of a view tree, for "is it shown somewhere" checks */
+    static String textOf(View v) {
+        StringBuilder b = new StringBuilder();
+        if (v instanceof TextView) b.append(((TextView) v).getText()).append('\n');
+        if (v instanceof ViewGroup) for (int k = 0; k < ((ViewGroup) v).getChildCount(); k++) b.append(textOf(((ViewGroup) v).getChildAt(k)));
+        return b.toString();
+    }
+
+    /** the longest date + time ("28/12/2026 23:59", any order) fits on one line of a history row at 360 dp */
+    @Test @Config(qualifiers = "w360dp-h740dp-port-xxhdpi") public void historyDateFitsAt360dp() throws Exception {
+        java.time.ZoneId z = java.time.ZoneId.systemDefault();
+        long t = java.time.LocalDateTime.of(2026, 12, 28, 23, 59).atZone(z).toInstant().toEpochMilli();
+        h.clear();
+        h.addSingle("a long text that certainly does not fit on one line of a narrow phone screen at all", t);
+        MainActivity m = Robolectric.buildActivity(MainActivity.class).setup().get();
+        for (DateFmt f : DateFmt.values()) {
+            App.get().prefs().setDateFmt(f);
+            m.historyPage.refresh();
+            int w = dp(m, 360), hh = dp(m, 740);
+            View root = m.getWindow().getDecorView();
+            root.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(hh, View.MeasureSpec.EXACTLY));
+            root.layout(0, 0, w, hh);
+            SwipeListView list = m.findViewById(R.id.list);
+            TextView sub = list.getChildAt(0).findViewById(R.id.row_sub);
+            assertEquals(f.dateTime(t, z, false), sub.getText().toString());
+            assertEquals(1, sub.getLineCount());
+            assertEquals(f + " not cut", 0, sub.getLayout().getEllipsisCount(0));
+            assertTrue("plenty of room: " + sub.getPaint().measureText(sub.getText().toString()) + " of " + sub.getWidth(),
+                    sub.getPaint().measureText(sub.getText().toString()) < sub.getWidth() * 0.7f);
+        }
     }
 
     @Test public void createTapTogglesBrightness() throws Exception {
@@ -1026,8 +1133,8 @@ public class ScreensTest {
         View clear = m.findViewById(R.id.set_clear);
         assertTrue(topIn(clear) < topIn(m.findViewById(R.id.set_left)));
         assertTrue(topIn(clear) - (topIn(m.findViewById(R.id.top_bar)) + m.findViewById(R.id.top_bar).getHeight()) < dp(m, 4));
-        assertEquals(View.GONE, m.findViewById(R.id.btn_scan_top).getVisibility());
-        assertEquals(View.GONE, m.findViewById(R.id.btn_jump).getVisibility());
+        assertEquals("slot kept, nothing to tap", View.INVISIBLE, m.findViewById(R.id.btn_scan_top).getVisibility());
+        assertEquals(View.INVISIBLE, m.findViewById(R.id.btn_jump).getVisibility());
         CheckBox fav = m.findViewById(R.id.cb_clear_fav), prot = m.findViewById(R.id.cb_clear_prot);
         assertTrue("both off by default", !fav.isChecked() && !prot.isChecked());
         // stacked: incl. favorites above incl. protected, on the right of the row
@@ -1119,9 +1226,17 @@ public class ScreensTest {
         View pill = m.findViewById(R.id.unlock_pill);
         layout(m);
         assertEquals(View.VISIBLE, pill.getVisibility());
+        int[] onHistory = new int[2];
+        pill.getLocationInWindow(onHistory);
+        int wHistory = pill.getWidth();
         m.select(MainActivity.TAB_SETTINGS);
         layout(m);
         assertEquals("pill in the Settings top bar", View.VISIBLE, pill.getVisibility());
+        int[] onSettings = new int[2];
+        pill.getLocationInWindow(onSettings);
+        assertEquals("same slot as on History, no jump: x", onHistory[0], onSettings[0]);
+        assertEquals("y", onHistory[1], onSettings[1]);
+        assertEquals(wHistory, pill.getWidth());
         shot(m, "settings-unlock-pill", null);
         m.select(MainActivity.TAB_CREATE);
         assertEquals(View.GONE, pill.getVisibility());

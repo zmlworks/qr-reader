@@ -130,7 +130,8 @@
     <string name="about">About &amp; licenses</string>
     <string name="about_head">%1$s %2$s\nCopyright © 2026 zmlworks · MIT License\nNo internet access, no analytics: scans stay on this device.\nMade by the AI assistant Grok Bot for zmlworks.</string>
     <string name="about_sub">Version %1$s · MIT · open-source notices</string>
-    <string name="once">Scan non-QR once</string>
+    <string name="once">[Scan non-QR once]</string>
+    <string name="date_format">Date format</string>
     <string name="unlocked_pill">Unlocked · %ds</string>
     <string name="unlocked_pill_short">%ds</string>
     <plurals name="unlocked_pill_cd">

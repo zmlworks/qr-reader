@@ -51,11 +51,11 @@ final class HistoryPage {
     /** the last Jump to date dialog (tests) */
     android.app.AlertDialog jumpDialog;
 
-    /** the pickers of the last Jump to date dialog (tests): day, month, year */
+    /** the pickers of the last Jump to date dialog (tests): day, month, year (whatever their order on screen) */
     android.widget.NumberPicker[] jumpPickers;
 
     /**
-     * Jump to date: three wheels, day / month / year (the ddmmyyyy order), from the oldest row's day to today, starting
+     * Jump to date: three wheels for day / month / year in the order of the Settings date format, from the oldest row's day to today, starting
      * at the newest row's day. Scrolls to the first row of that day or of the nearest earlier day.
      */
     void jumpToDate() {
@@ -95,9 +95,8 @@ final class HistoryPage {
         row.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
         int pad = (int) (8 * a.getResources().getDisplayMetrics().density);
         row.setPadding(pad, pad, pad, 0);
-        row.addView(labelled(day, R.string.jump_day));
-        row.addView(labelled(month, R.string.jump_month));
-        row.addView(labelled(year, R.string.jump_year));
+        for (char c : App.get().prefs().dateFmt().order)   // e.g. YYYY/MM/DD: year, month, day
+            row.addView(c == 'd' ? labelled(day, R.string.jump_day) : c == 'm' ? labelled(month, R.string.jump_month) : labelled(year, R.string.jump_year));
         jumpPickers = new android.widget.NumberPicker[]{day, month, year};
         jumpDialog = new android.app.AlertDialog.Builder(a).setTitle(R.string.jump_to_date).setView(row)
                 .setPositiveButton(R.string.jump, (d, w) -> jumpTo(cur[0])).setNegativeButton(R.string.cancel, null).show();
@@ -136,15 +135,15 @@ final class HistoryPage {
         List<Long> times = new ArrayList<>();
         for (History.Entry e : items) times.add(e.time);
         int i = JumpDate.index(times, day, z);
-        java.time.format.DateTimeFormatter f = java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM);
+        DateFmt f = App.get().prefs().dateFmt();
         if (i < 0) {
-            android.widget.Toast.makeText(a, a.getString(R.string.jump_none, f.format(day)), android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(a, a.getString(R.string.jump_none, f.date(day)), android.widget.Toast.LENGTH_SHORT).show();
             if (!items.isEmpty()) list.setSelection(items.size() - 1);
             return -1;
         }
         java.time.LocalDate got = JumpDate.dayOf(items.get(i).time, z);
         if (!got.equals(day))
-            android.widget.Toast.makeText(a, a.getString(R.string.jump_earlier, f.format(day), f.format(got)), android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(a, a.getString(R.string.jump_earlier, f.date(day), f.date(got)), android.widget.Toast.LENGTH_SHORT).show();
         list.setSelection(i);
         return i;
     }

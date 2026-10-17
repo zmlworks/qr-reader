@@ -87,9 +87,10 @@ public final class MainActivity extends BaseActivity {
         }
         title.setText(t == TAB_HISTORY ? R.string.history : t == TAB_CREATE ? R.string.create : R.string.settings);
         topBar.setVisibility(t == TAB_CREATE ? View.GONE : View.VISIBLE);
-        // History only: Settings starts with Clear all history, so no "scan" button right above it (mis-taps)
+        // History only: Settings starts with Clear all history, so no "scan" button right above it (mis-taps).
+        // INVISIBLE there (not GONE) keeps their slots, so the unlock pill stays exactly where it is on History.
         for (int id : new int[]{R.id.btn_scan_top, R.id.btn_jump})
-            findViewById(id).setVisibility(t == TAB_HISTORY ? View.VISIBLE : View.GONE);
+            findViewById(id).setVisibility(t == TAB_HISTORY ? View.VISIBLE : View.INVISIBLE);
         ((UnlockPill) findViewById(R.id.unlock_pill)).setAllowed(t != TAB_CREATE);   // History and Settings
         renderBars();
         if (t == TAB_HISTORY) historyPage.refresh();

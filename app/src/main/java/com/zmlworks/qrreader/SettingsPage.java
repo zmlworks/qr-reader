@@ -22,6 +22,7 @@ final class SettingsPage {
     static final String REPO_URL = "https://github.com/zmlworks/qr-reader";
     private final MainActivity a;
     private final Prefs p;
+    private final TextView dateFormatValue;
     private final CheckBox cbLeft, cbVibrate, cbDark, cbConfirm, cbClearFav, cbClearProt;
     /** Clear all history also deletes favorites / protected codes (both off at every start: the safe choice) */
     private boolean clearFavorites, clearProtected;
@@ -36,6 +37,7 @@ final class SettingsPage {
         cbConfirm = root.findViewById(R.id.cb_confirm);
         cbClearFav = root.findViewById(R.id.cb_clear_fav);
         cbClearProt = root.findViewById(R.id.cb_clear_prot);
+        dateFormatValue = root.findViewById(R.id.date_format_value);
         root.findViewById(R.id.set_clear_fav).setOnClickListener(v -> { clearFavorites = !clearFavorites; refresh(); });
         root.findViewById(R.id.set_clear_prot).setOnClickListener(v -> { clearProtected = !clearProtected; refresh(); });
         engineValue = root.findViewById(R.id.engine_value);
@@ -44,6 +46,7 @@ final class SettingsPage {
         root.findViewById(R.id.set_left).setOnClickListener(v -> { p.setLeftHanded(!p.leftHanded()); refresh(); });
         root.findViewById(R.id.set_vibrate).setOnClickListener(v -> { p.setVibrate(!p.vibrate()); refresh(); });
         root.findViewById(R.id.set_dark).setOnClickListener(v -> { p.setDark(!a.isNight()); a.recreate(); });
+        root.findViewById(R.id.set_date_format).setOnClickListener(v -> { p.setDateFmt(p.dateFmt().next()); refresh(); });
         root.findViewById(R.id.set_confirm).setOnClickListener(v -> { p.setConfirmBrowser(!p.confirmBrowser()); refresh(); });
         root.findViewById(R.id.set_engine).setOnClickListener(v -> editTemplate());
         root.findViewById(R.id.set_clear).setOnClickListener(v -> confirmClear());
@@ -55,6 +58,7 @@ final class SettingsPage {
         cbLeft.setChecked(p.leftHanded());
         cbVibrate.setChecked(p.vibrate());
         cbDark.setChecked(a.isNight());
+        dateFormatValue.setText(App.get().prefs().dateFmt().label);
         cbConfirm.setChecked(p.confirmBrowser());
         engineValue.setText(p.searchTemplate());
         cbClearFav.setChecked(clearFavorites);

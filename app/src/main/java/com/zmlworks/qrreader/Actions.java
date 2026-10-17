@@ -81,16 +81,11 @@ final class Actions {
         } catch (RuntimeException ignored) { }
     }
 
-    /** Date and time for lists: year, month, day, hours and minutes in the locale's order (e.g. "Oct 17, 2026, 14:05"). */
-    static String listTime(long t) {
-        java.util.Locale l = java.util.Locale.getDefault();
-        return new java.text.SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(l, "yyyyMMMdHHmm"), l).format(new java.util.Date(t));
-    }
+    /** Date and time for lists in the Settings date format, e.g. "17/10/2026 14:05". */
+    static String listTime(long t) { return App.get().prefs().dateFmt().dateTime(t, java.time.ZoneId.systemDefault(), false); }
 
-    static String longTime(long t) {
-        java.util.Locale l = java.util.Locale.getDefault();
-        return new java.text.SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(l, "yyyyMMMdHHmmss"), l).format(new java.util.Date(t));
-    }
+    /** detail page / group header: with seconds, e.g. "17/10/2026 14:05:09" */
+    static String longTime(long t) { return App.get().prefs().dateFmt().dateTime(t, java.time.ZoneId.systemDefault(), true); }
 
     static boolean atLeast(int api) { return Build.VERSION.SDK_INT >= api; }
 }

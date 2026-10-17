@@ -176,6 +176,30 @@
                 android:importantForAccessibility="no" />
         </LinearLayout>
 
+        <!-- one line: tap cycles DD/MM/YYYY -> MM/DD/YYYY -> YYYY/MM/DD -->
+        <LinearLayout
+            android:id="@+id/set_date_format"
+            style="@style/SettingRow"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
+
+            <TextView
+                style="@style/SettingTitle"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:maxLines="1"
+                android:text="@string/date_format" />
+
+            <TextView
+                android:id="@+id/date_format_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:maxLines="1"
+                android:textColor="@color/dim"
+                android:textSize="15sp" />
+        </LinearLayout>
+
         <LinearLayout
             android:id="@+id/set_confirm"
             style="@style/SettingRow"
@@ -228,20 +252,23 @@
             android:background="@color/line" />
 
         <!-- hidden extra: one scanning session that reads every barcode format -->
-        <LinearLayout
-            android:id="@+id/set_once"
-            style="@style/SettingRow"
-            android:baselineAligned="false"
-            android:orientation="horizontal">
+        <!-- the row keeps its place and height; only the centred text (plus ~10 dp around it) is tappable -->
+        <FrameLayout
+            android:id="@+id/set_once_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="64dp">
 
             <TextView
+                android:id="@+id/set_once"
                 style="@style/SettingTitle"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:id="@+id/once_text"
-                android:text="@string/once"
-                android:textColor="@color/dim" />
-        </LinearLayout>
+                android:layout_gravity="center"
+                android:background="?android:attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="10dp"
+                android:text="@string/once" />
+        </FrameLayout>
 
         <LinearLayout
             android:id="@+id/set_about"

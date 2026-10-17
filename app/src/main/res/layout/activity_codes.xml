@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <LinearLayout style="@style/TopBar">
+
+        <ImageButton
+            android:id="@+id/btn_back"
+            style="@style/IconBtn"
+            android:contentDescription="@string/back"
+            android:src="@drawable/ic_back" />
+
+        <TextView
+            android:id="@+id/title"
+            style="@style/TopTitle"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <ImageButton
+            android:id="@+id/btn_copy_all"
+            style="@style/IconBtn"
+            android:contentDescription="@string/copy_all"
+            android:src="@drawable/ic_copy" />
+
+        <ImageButton
+            android:id="@+id/btn_share_all"
+            style="@style/IconBtn"
+            android:contentDescription="@string/share_all"
+            android:src="@drawable/ic_share" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/sub"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="6dp"
+        android:textColor="@color/dim"
+        android:textSize="13sp" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <com.zmlworks.qrreader.SwipeListView
+            android:id="@+id/list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="@color/line"
+            android:dividerHeight="1dp" />
+
+        <TextView
+            android:id="@+id/empty"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="@string/not_found"
+            android:textColor="@color/dim"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <include layout="@layout/snackbar" />
+</LinearLayout>

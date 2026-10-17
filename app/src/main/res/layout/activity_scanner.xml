@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TextureView
+        android:id="@+id/preview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- outlines + the touch surface for swipe-to-zoom and tap-to-focus -->
+    <com.zmlworks.qrreader.OverlayView
+        android:id="@+id/overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@string/preview_desc" />
+
+    <FrameLayout
+        android:id="@+id/controls"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:padding="12dp">
+
+        <com.zmlworks.qrreader.ZoomBarView
+            android:id="@+id/zoom_bar"
+            android:layout_width="56dp"
+            android:layout_height="300dp"
+            android:layout_gravity="center_vertical|start" />
+
+        <TextView
+            android:id="@+id/pill"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/pill_bg"
+            android:maxWidth="300dp"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:paddingStart="16dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="8dp"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/message"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:maxWidth="280dp"
+                android:gravity="center"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/message_btn"
+                style="@style/ScanTextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/buttons"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginBottom="24dp"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <ImageButton
+                android:id="@+id/btn_close"
+                style="@style/ScanButton"
+                android:contentDescription="@string/stop_scanning"
+                android:src="@drawable/ic_close" />
+
+            <ImageButton
+                android:id="@+id/btn_flash"
+                style="@style/ScanButton"
+                android:contentDescription="@string/flash_on"
+                android:src="@drawable/ic_flash_off" />
+
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+
+                <ImageButton
+                    android:id="@+id/btn_multi"
+                    style="@style/ScanButton"
+                    android:contentDescription="@string/multi_on"
+                    android:src="@drawable/ic_multi" />
+
+                <TextView
+                    android:id="@+id/multi_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="22dp"
+                    android:layout_gravity="top|end"
+                    android:background="@drawable/badge_bg"
+                    android:gravity="center"
+                    android:minWidth="22dp"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:textColor="#000000"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+            </FrameLayout>
+        </LinearLayout>
+    </FrameLayout>
+</FrameLayout>

@@ -24,7 +24,26 @@ public class PhotoCodesTest {
     }
 
     static List<String> decode(int[] px, int w, int h) {
-        return PhotoCodes.decode(PhotoCodes.luminance(px, w, h), w, h, Collections.singletonList(new JavaEngine()));
+        List<String> r = new java.util.ArrayList<>();
+        for (QrEngine.Code c : codes(px, w, h, false)) r.add(c.text);
+        return r;
+    }
+
+    static List<QrEngine.Code> codes(int[] px, int w, int h, boolean all) {
+        return PhotoCodes.decode(PhotoCodes.luminance(px, w, h), w, h, Collections.singletonList(all ? new JavaAllFormatsEngine() : new JavaEngine()));
+    }
+
+    /** a 1D barcode drawn `scale` px per module, `barH` px high, centred on white */
+    static int[] barcode(com.google.zxing.BarcodeFormat f, String text, int w, int h, int scale, int barH) throws Exception {
+        com.google.zxing.common.BitMatrix m = new com.google.zxing.MultiFormatWriter().encode(text, f, 0, 1);
+        int[] px = new int[w * h];
+        java.util.Arrays.fill(px, 0xFFFFFFFF);
+        int x0 = (w - m.getWidth() * scale) / 2, y0 = (h - barH) / 2;
+        for (int x = 0; x < m.getWidth(); x++) {
+            if (!m.get(x, 0)) continue;
+            for (int y = y0; y < y0 + barH; y++) for (int k = 0; k < scale; k++) px[y * w + x0 + x * scale + k] = 0xFF000000;
+        }
+        return px;
     }
 
     @Test public void luminance() {
@@ -54,6 +73,28 @@ public class PhotoCodesTest {
         int w = 300, h = 200;
         List<String> r = decode(picture(w, h, new String[]{"tiny"}, new int[][]{{100, 60}}, 2), w, h);
         assertEquals(Collections.singletonList("tiny"), r);
+    }
+
+    @Test public void qrHasNoFormatLabel() {
+        int w = 400, h = 400;
+        List<QrEngine.Code> r = codes(picture(w, h, new String[]{"hello"}, new int[][]{{80, 80}}, 8), w, h, true);
+        assertEquals(1, r.size());
+        assertEquals(null, r.get(0).format);
+    }
+
+    @Test public void allFormatsReadsLinearBarcodes() throws Exception {
+        int w = 900, h = 400;
+        int[] ean = barcode(com.google.zxing.BarcodeFormat.EAN_13, "4006381333931", w, h, 4, 160);
+        assertTrue("QR-only mode ignores barcodes", codes(ean, w, h, false).isEmpty());
+        List<QrEngine.Code> r = codes(ean, w, h, true);
+        assertEquals(1, r.size());
+        assertEquals("4006381333931", r.get(0).text);
+        assertEquals("EAN-13", r.get(0).format);
+        int[] c128 = barcode(com.google.zxing.BarcodeFormat.CODE_128, "ZML-0042", w, h, 3, 160);
+        r = codes(c128, w, h, true);
+        assertEquals(1, r.size());
+        assertEquals("ZML-0042", r.get(0).text);
+        assertEquals("Code 128", r.get(0).format);
     }
 
     @Test public void noCode() {

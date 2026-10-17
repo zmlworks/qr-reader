@@ -19,7 +19,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Fallback decoder (pure Java ZXing core) for devices where the zxing-cpp native library is not available. */
+/**
+ * Fallback decoder (pure Java ZXing core) for devices where the zxing-cpp native library is not available.
+ * QR only, also in all-codes mode: ZXing's other readers would add about 75 KB to the APK for a path that the shipped
+ * ABIs (arm64-v8a, armeabi-v7a, both with zxing-cpp) practically never take.
+ */
 final class JavaEngine implements QrEngine {
     private final Map<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
     private final QRCodeMultiReader multi = new QRCodeMultiReader();
@@ -44,6 +48,11 @@ final class JavaEngine implements QrEngine {
         } finally {
             single.reset();
         }
+        return codes(rs);
+    }
+
+    /** ZXing results as codes (also used by the all-format test engine) */
+    static List<Code> codes(Result[] rs) {
         List<Code> out = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         for (Result r : rs) {
@@ -55,7 +64,7 @@ final class JavaEngine implements QrEngine {
                 float bx = p[0].getX(), by = p[0].getY(), tx = p[1].getX(), ty = p[1].getY(), rx = p[2].getX(), ry = p[2].getY();
                 c = new float[]{tx, ty, rx, ry, rx + bx - tx, ry + by - ty, bx, by};
             }
-            out.add(new Code(r.getText(), c));
+            out.add(new Code(r.getText(), c, r.getBarcodeFormat() == null ? null : Formats.label(r.getBarcodeFormat().name())));
         }
         return out;
     }

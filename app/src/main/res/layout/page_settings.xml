@@ -171,5 +171,20 @@
                     style="@style/SettingSub" />
             </LinearLayout>
         </LinearLayout>
+
+        <!-- hidden all-codes mode -->
+        <TextView
+            android:id="@+id/set_once"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:gravity="center"
+            android:paddingTop="14dp"
+            android:paddingBottom="14dp"
+            android:text="@string/once"
+            android:textColor="@color/dim"
+            android:textSize="12sp"
+            android:textStyle="italic" />
     </LinearLayout>
 </ScrollView>

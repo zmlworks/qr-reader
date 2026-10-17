@@ -49,6 +49,10 @@
         <item name="android:textAllCaps">false</item>
         <item name="android:textSize">16sp</item>
     </style>
+    <style name="UnlockButton" parent="android:Widget.Material.Button.Borderless.Colored">
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">16sp</item>
+    </style>
     <style name="TopBar">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">56dp</item>

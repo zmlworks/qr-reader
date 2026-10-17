@@ -17,6 +17,7 @@ final class Actions {
     private Actions() {}
 
     static void copy(Context c, String text) {
+        if (text == null || text.isEmpty()) return;   // e.g. a group whose codes are all protected
         ClipboardManager cm = c.getSystemService(ClipboardManager.class);
         if (cm == null) return;
         cm.setPrimaryClip(ClipData.newPlainText("QR", text));

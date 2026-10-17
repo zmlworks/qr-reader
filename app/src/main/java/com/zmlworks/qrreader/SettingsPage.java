@@ -39,6 +39,7 @@ final class SettingsPage {
         root.findViewById(R.id.set_engine).setOnClickListener(v -> editTemplate());
         root.findViewById(R.id.set_clear).setOnClickListener(v -> confirmClear());
         root.findViewById(R.id.set_about).setOnClickListener(v -> about());
+        root.findViewById(R.id.set_once).setOnClickListener(v -> a.scanAllCodes());
     }
 
     void refresh() {

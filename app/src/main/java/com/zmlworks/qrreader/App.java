@@ -19,6 +19,12 @@ public final class App extends Application implements Application.ActivityLifecy
     boolean wasInBackground = true;
     /** the last removal that can still be undone (one level, like the snackbar) */
     History.Removal pendingUndo;
+    /** protected items open without a new prompt until then (uptimeMillis); cleared when the app goes to the background */
+    long authUntil;
+    /** hidden all-codes mode: on for one scanning session (until × or leaving the app) */
+    boolean allCodes;
+    /** a system screen of ours is up (photo picker, confirm screen lock): not "leaving the app" */
+    boolean holdForeground;
 
     @Override public void onCreate() {
         super.onCreate();
@@ -37,6 +43,7 @@ public final class App extends Application implements Application.ActivityLifecy
     Prefs prefs() { return prefs; }
 
     @Override public void onActivityStarted(Activity a) {
+        if (holdForeground) { started++; return; }
         if (started++ == 0 && wasInBackground) {
             wasInBackground = false;
             if (!(a instanceof ScannerActivity)) {
@@ -47,7 +54,11 @@ public final class App extends Application implements Application.ActivityLifecy
     }
 
     @Override public void onActivityStopped(Activity a) {
-        if (--started == 0 && !a.isChangingConfigurations()) wasInBackground = true;
+        if (--started == 0 && !a.isChangingConfigurations() && !holdForeground) {
+            wasInBackground = true;
+            authUntil = 0;      // the re-auth window ends when the user leaves the app
+            allCodes = false;   // so does an all-codes session
+        }
     }
 
     @Override public void onActivityCreated(Activity a, Bundle b) { }

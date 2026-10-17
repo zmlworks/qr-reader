@@ -21,7 +21,7 @@ public final class OverlayView extends View {
     private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG), fill = new Paint(Paint.ANTI_ALIAS_FLAG), ring = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private List<Shape> shapes = new ArrayList<>();
-    private long shapesAt, focusAt = -10_000;
+    private long shapesAt, holdMs, focusAt = -10_000;
     private float fx, fy;
     private final float dp;
     static final long FADE_MS = 450, FOCUS_MS = 900;
@@ -39,8 +39,12 @@ public final class OverlayView extends View {
     }
 
     /** @param s outlines in view coordinates (8 floats each) */
-    void setShapes(List<Shape> s) {
+    void setShapes(List<Shape> s) { hold(s, 0); }
+
+    /** Shows the outlines at full strength for `ms` before they fade (the success freeze). */
+    void hold(List<Shape> s, long ms) {
         shapes = s;
+        holdMs = ms;
         shapesAt = SystemClock.uptimeMillis();
         postInvalidateOnAnimation();
     }
@@ -55,7 +59,7 @@ public final class OverlayView extends View {
     @Override protected void onDraw(Canvas c) {
         long now = SystemClock.uptimeMillis();
         boolean again = false;
-        long age = now - shapesAt;
+        long age = Math.max(0, now - shapesAt - holdMs);
         if (!shapes.isEmpty() && age < FADE_MS) {
             float k = age < 150 ? 1 : 1 - (age - 150) / (float) (FADE_MS - 150);
             for (Shape s : shapes) {

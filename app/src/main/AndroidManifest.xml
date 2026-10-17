@@ -3,6 +3,8 @@
     <!-- No INTERNET permission, no analytics. Camera = scanning; vibrate = short buzz on a read. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- fingerprint / face for protected items (framework BiometricPrompt; a normal permission, no dialog) -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />

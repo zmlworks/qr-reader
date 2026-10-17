@@ -89,7 +89,7 @@ public final class MainActivity extends BaseActivity {
         renderBars();
         if (t == TAB_HISTORY) historyPage.refresh();
         if (t == TAB_SETTINGS) settingsPage.refresh();
-        if (t != TAB_CREATE) createPage.hideKeyboard();
+        if (t != TAB_CREATE) { createPage.hideKeyboard(); createPage.setBright(false, false); }
     }
 
     /** Is the keyboard open? (then Create hides the tabs) */
@@ -119,6 +119,17 @@ public final class MainActivity extends BaseActivity {
         super.onResume();
         if (tab == TAB_HISTORY) historyPage.refresh();
         if (tab == TAB_SETTINGS) settingsPage.refresh();
+    }
+
+    @Override protected void onPause() {
+        createPage.setBright(false, false);   // leaving the page or the app: normal brightness
+        super.onPause();
+    }
+
+    /** Settings' hidden line: scan every barcode format for one session. */
+    void scanAllCodes() {
+        startActivity(new Intent(this, ScannerActivity.class).putExtra(ScannerActivity.EXTRA_ALL_CODES, true));
+        finish();
     }
 
     @Override protected void onSaveInstanceState(Bundle out) {

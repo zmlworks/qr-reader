@@ -21,7 +21,9 @@ import java.util.List;
 /**
  * One code: optional name (pen), the full text (a URL is a link: tap = browser, after a confirmation if that setting is
  * on), then one action per row: type-specific ones (call, mail, SMS, map, Wi-Fi) and share / copy / web search /
- * create QR. Favourite and delete (with UNDO in the history) are in the top bar.
+ * create QR. Lock (protection), name, favourite and delete (with UNDO in the history) are in the top bar.
+ * A protected item shows nothing until the user authenticates ({@link Auth}); its window is FLAG_SECURE (no
+ * screenshots, blank in Recents).
  */
 public final class DetailActivity extends BaseActivity {
     static final String EXTRA_ID = "id";
@@ -29,6 +31,9 @@ public final class DetailActivity extends BaseActivity {
     private ImageButton fav;
     private LinearLayout actions;
     private final List<View> extraRows = new ArrayList<>();
+    private ImageButton lock;
+    /** authenticated on this page (a protected item stays readable here until the page closes) */
+    private boolean unlocked, prompted;
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -36,13 +41,16 @@ public final class DetailActivity extends BaseActivity {
         padForInsets(findViewById(R.id.root));
         fav = findViewById(R.id.btn_fav);
         actions = findViewById(R.id.actions);
+        lock = findViewById(R.id.btn_lock);
         findViewById(R.id.btn_back).setOnClickListener(v -> finish());
+        findViewById(R.id.btn_unlock).setOnClickListener(v -> unlock());
         bind();
     }
 
     @Override protected void onNewIntent(Intent i) {
         super.onNewIntent(i);
         setIntent(i);
+        unlocked = prompted = false;
         bind();
     }
 
@@ -55,14 +63,31 @@ public final class DetailActivity extends BaseActivity {
         if (e == null || e.kind == History.GROUP) {
             title.setText("");
             text.setText(R.string.not_found);
+            secure(false);
+            findViewById(R.id.content).setVisibility(View.VISIBLE);
+            findViewById(R.id.locked).setVisibility(View.GONE);
             findViewById(R.id.name).setVisibility(View.GONE);
-            for (int id : new int[]{R.id.btn_name, R.id.btn_fav, R.id.btn_delete, R.id.actions})
+            for (int id : new int[]{R.id.btn_lock, R.id.btn_name, R.id.btn_fav, R.id.btn_delete, R.id.actions})
                 findViewById(id).setVisibility(View.GONE);
             return;
         }
+        secure(e.prot);
+        boolean locked = e.prot && !unlocked;
+        if (locked && Auth.recentlyOk()) { unlocked = true; locked = false; }
+        findViewById(R.id.content).setVisibility(locked ? View.GONE : View.VISIBLE);
+        findViewById(R.id.locked).setVisibility(locked ? View.VISIBLE : View.GONE);
+        for (int id : new int[]{R.id.btn_lock, R.id.btn_name, R.id.btn_fav, R.id.btn_delete})
+            findViewById(id).setVisibility(locked ? View.GONE : View.VISIBLE);
+        if (locked) {
+            title.setText(R.string.protected_title);
+            if (!prompted) { prompted = true; getWindow().getDecorView().post(this::unlock); }
+            return;
+        }
+        renderLock();
+        lock.setOnClickListener(v -> toggleProtection());
         final String s = e.text;
         final ContentType t = ContentType.parse(s);
-        title.setText(t.label());
+        title.setText(e.format != null ? e.format : t.label());
         renderName();
         String m = Actions.longTime(e.time);
         if (e.kind == History.CHILD) {
@@ -157,6 +182,52 @@ public final class DetailActivity extends BaseActivity {
                 .setPositiveButton(R.string.ok, (d, w) -> { App.get().history().setName(e.id, et.getText().toString()); renderName(); })
                 .setNegativeButton(R.string.cancel, null).show();
     }
+
+    private void unlock() {
+        if (e == null || isFinishing()) return;
+        Auth.require(this, true, getString(R.string.auth_open_title), () -> { unlocked = true; bind(); }, null);
+    }
+
+    /** ON: no prompt (needs a screen lock); OFF: always asks (the 1-minute window does not apply). */
+    private void toggleProtection() {
+        History h = App.get().history();
+        if (!e.prot) {
+            if (!Auth.deviceSecure(this)) {
+                lastDialog = new AlertDialog.Builder(this).setTitle(R.string.no_lock_title).setMessage(R.string.no_lock_message)
+                        .setPositiveButton(R.string.open_settings, (d, w) -> Actions.start(this, new Intent(Settings.ACTION_SECURITY_SETTINGS)))
+                        .setNegativeButton(R.string.cancel, null).show();
+                return;
+            }
+            h.setProtected(e.id, true);
+            unlocked = true;
+            secure(true);
+            renderLock();
+            android.widget.Toast.makeText(this, R.string.protected_on, android.widget.Toast.LENGTH_SHORT).show();
+        } else {
+            Auth.require(this, false, getString(R.string.auth_unprotect_title), () -> {
+                h.setProtected(e.id, false);
+                secure(false);
+                renderLock();
+                android.widget.Toast.makeText(this, R.string.protected_off, android.widget.Toast.LENGTH_SHORT).show();
+            }, null);
+        }
+    }
+
+    /** the last "no screen lock" dialog (tests) */
+    AlertDialog lastDialog;
+
+    private void renderLock() {
+        lock.setImageResource(e.prot ? R.drawable.ic_lock_filled : R.drawable.ic_lock);
+        lock.setContentDescription(getString(e.prot ? R.string.unprotect : R.string.protect));
+        lock.setActivated(e.prot);
+    }
+
+    private void secure(boolean on) {
+        if (on) getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+        else getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+    }
+
+    boolean lockedForTest() { return findViewById(R.id.locked).getVisibility() == View.VISIBLE; }
 
     private void renderFav() {
         fav.setImageResource(e.fav ? R.drawable.ic_star_filled : R.drawable.ic_star);

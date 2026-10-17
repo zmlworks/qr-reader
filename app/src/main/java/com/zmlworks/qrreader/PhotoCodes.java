@@ -1,12 +1,12 @@
 package com.zmlworks.qrreader;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 /**
- * "Read from image" (pure Java part, unit-tested): grey-scale conversion of a picture and decoding of every QR code in
+ * "Read from image" (pure Java part, unit-tested): grey-scale conversion of a picture and decoding of every code in
  * it with zxing-cpp (still-image options), the 2× upscale for small codes, and the Java ZXing reader as a second
  * opinion. Distinct texts, in the order found.
  */
@@ -24,15 +24,16 @@ public final class PhotoCodes {
         return y;
     }
 
-    /** @param engines tried in order; each later one only adds texts the earlier ones missed */
-    public static List<String> decode(byte[] y, int w, int h, List<QrEngine> engines) {
-        Set<String> out = new LinkedHashSet<>();
+    /** @param engines tried in order until one finds something (the later ones are fallbacks for misses) */
+    public static List<QrEngine.Code> decode(byte[] y, int w, int h, List<QrEngine> engines) {
+        List<QrEngine.Code> out = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
         for (QrEngine e : engines) {
             if (e == null) continue;
             DecodePipeline p = new DecodePipeline(e, true);
-            for (QrEngine.Code c : p.decode(y, w, h, 0)) out.add(c.text);
-            if (!out.isEmpty()) break;   // the first engine that finds something wins (the fallback is for misses)
+            for (QrEngine.Code c : p.decode(y, w, h, 0)) if (seen.add(c.text)) out.add(c);
+            if (!out.isEmpty()) break;
         }
-        return new ArrayList<>(out);
+        return out;
     }
 }

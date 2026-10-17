@@ -40,7 +40,12 @@ public final class CodesActivity extends BaseActivity {
                 refresh();
                 snack.show(getString(R.string.deleted), () -> { App.get().history().undo(r); refresh(); });
             }
-            @Override public void onSwipeLeft(int pos) { if (pos >= 0 && pos < items.size()) Actions.copy(CodesActivity.this, items.get(pos).text); }
+            @Override public void onSwipeLeft(int pos) {
+                if (pos < 0 || pos >= items.size()) return;
+                final History.Entry e = items.get(pos);
+                if (e.prot) Auth.require(CodesActivity.this, true, getString(R.string.auth_copy_title), () -> Actions.copy(CodesActivity.this, e.text), null);
+                else Actions.copy(CodesActivity.this, e.text);
+            }
         });
     }
 
@@ -71,11 +76,7 @@ public final class CodesActivity extends BaseActivity {
         @Override public View getView(int pos, View v, ViewGroup parent) {
             if (v == null) v = LayoutInflater.from(CodesActivity.this).inflate(R.layout.row_history, parent, false);
             SwipeListView.reset(v);
-            History.Entry e = items.get(pos);
-            ((TextView) v.findViewById(R.id.row_badge)).setText(ContentType.parse(e.text).label());
-            ((TextView) v.findViewById(R.id.row_title)).setText(HistoryPage.preview(History.label(e)));
-            ((TextView) v.findViewById(R.id.row_sub)).setText(getString(R.string.row_number, pos + 1));
-            v.findViewById(R.id.row_star).setVisibility(e.fav ? View.VISIBLE : View.GONE);
+            HistoryPage.bindCode(CodesActivity.this, v, items.get(pos), getString(R.string.row_number, pos + 1));
             return v;
         }
     }

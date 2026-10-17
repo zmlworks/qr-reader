@@ -157,6 +157,46 @@ public class HistoryTest {
         assertTrue(p.get(1).fav);
         assertEquals(null, p.get(1).name);
         assertEquals("child", p.children(2).get(0).text);
-        assertTrue(p.serialize().startsWith("QRH2\t4\n"));
+        assertTrue(p.serialize().startsWith("QRH3\t4\n"));
+    }
+
+    @Test public void readsVersion020Files() {
+        History p = History.parse("QRH2\t3\n1\t0\t0\t100\t1\tSticker\thttps://a\n2\t0\t0\t200\t0\t\tplain\n");
+        assertEquals(2, p.size());
+        assertEquals("Sticker", p.get(1).name);
+        assertTrue(p.get(1).fav);
+        assertFalse(p.get(1).prot);
+        assertEquals(null, p.get(1).format);
+        assertEquals("plain", p.get(2).text);
+    }
+
+    @Test public void protectionAndFormats() {
+        History h = new History();
+        History.Entry a = h.addSingle("secret", 100);
+        h.setProtected(a.id, true);
+        assertTrue(a.prot);
+        // reading the same code again makes a new, unprotected entry instead of reusing the protected one
+        History.Entry b = h.addSingle("secret", 200);
+        assertFalse(b.id == a.id);
+        assertFalse(b.prot);
+        // same text, other format = other entry; same format merges
+        History.Entry e1 = h.addSingle("4006381333931", 300, "EAN-13");
+        History.Entry e2 = h.addSingle("4006381333931", 301, "EAN-13");
+        assertSame(e1, e2);
+        assertFalse(h.addSingle("4006381333931", 302, null).id == e1.id);
+        History.Entry g = h.newGroup(400);
+        h.addChild(g.id, "visible", 401, "Code 128");
+        History.Entry hidden = h.addChild(g.id, "hidden", 402, null);
+        h.setProtected(hidden.id, true);
+        assertEquals("protected codes are left out of group copy / share", "visible", h.groupText(g.id));
+        h.setProtected(g.id, true);
+        assertFalse("groups cannot be protected", g.prot);
+        History p = History.parse(h.serialize());
+        assertEquals(h.serialize(), p.serialize());
+        assertTrue(p.get(a.id).prot);
+        assertEquals("EAN-13", p.get(e1.id).format);
+        assertEquals("Code 128", p.children(g.id).get(0).format);
+        h.setProtected(a.id, false);
+        assertFalse(a.prot);
     }
 }

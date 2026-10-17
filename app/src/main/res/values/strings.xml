@@ -20,6 +20,7 @@
     <string name="reading_image">Reading the image…</string>
     <string name="image_no_code">No QR code found in that image</string>
     <string name="image_unreadable">That image could not be opened</string>
+    <string name="all_codes_badge">All codes</string>
     <string name="camera_denied">Camera access is needed to scan QR codes.</string>
     <string name="grant">Allow camera</string>
     <string name="no_camera">No camera found.</string>
@@ -67,6 +68,21 @@
     <string name="rename">Name this item</string>
     <string name="name_hint">Name</string>
     <string name="name_help">Shown in the history instead of the text. Leave empty to remove the name.</string>
+    <string name="protect">Protect this item</string>
+    <string name="unprotect">Remove protection</string>
+    <string name="protected_title">Protected</string>
+    <string name="protected_item">This item is protected.</string>
+    <string name="unlock">Unlock</string>
+    <string name="protected_on">Protected: the history shows only its date</string>
+    <string name="protected_off">Protection removed</string>
+    <string name="no_lock_title">No screen lock</string>
+    <string name="no_lock_message">Protection uses your fingerprint, face or screen lock (PIN, pattern or password). Set up a screen lock first, then try again.</string>
+    <string name="open_settings">Open settings</string>
+    <string name="auth_open_title">Open protected item</string>
+    <string name="auth_copy_title">Copy protected item</string>
+    <string name="auth_unprotect_title">Remove protection</string>
+    <string name="auth_subtitle">Simple QR Reader</string>
+    <string name="auth_no_lock_open">No screen lock is set up any more, so the protection cannot be checked.</string>
     <string name="confirm_open_title">Open in browser?</string>
     <string name="open">Open</string>
     <string name="favorite">Favorite</string>
@@ -75,6 +91,9 @@
     <string name="no_app">No app can open this.</string>
     <string name="not_found">This item no longer exists.</string>
     <!-- create -->
+    <string name="brightness_toggle">QR code. Tap to switch the screen brightness</string>
+    <string name="brightness_max">Brightness max</string>
+    <string name="brightness_normal">Brightness normal</string>
     <string name="create_hint">Type text or a URL</string>
     <string name="create_empty">The QR code appears here as you type.</string>
     <string name="too_long">Too long for one QR code (max. about 2,300 bytes).</string>
@@ -98,6 +117,7 @@
     <string name="about">About &amp; licenses</string>
     <string name="about_head">%1$s %2$s\nCopyright © 2026 zmlworks · MIT License\nNo internet access, no analytics: scans stay on this device.\nMade by the AI assistant Grok Bot for zmlworks.</string>
     <string name="about_sub">Version %1$s · MIT · open-source notices</string>
+    <string name="once">Once in a blue moon, a code comes in stripes.</string>
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>
     <string name="clear">Clear</string>

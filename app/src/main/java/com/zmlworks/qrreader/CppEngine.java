@@ -29,16 +29,20 @@ final class CppEngine implements QrEngine {
 
     private CppEngine(BarcodeReader r) { reader = r; }
 
-    static CppEngine create() { return create(false); }
+    static CppEngine create() { return create(false, false); }
 
-    /** @param image a still picture (gallery): also try rotated, inverted and downscaled */
-    static CppEngine create(boolean image) {
+    /**
+     * @param image a still picture (gallery): also try inverted and downscaled
+     * @param all every format zxing-cpp reads (hidden all-codes mode); also tries rotations so linear barcodes read in
+     *            any orientation of the phone
+     */
+    static CppEngine create(boolean image, boolean all) {
         try {
             BarcodeReader.Options o = new BarcodeReader.Options();
-            Set<BarcodeReader.Format> f = EnumSet.of(BarcodeReader.Format.QR_CODE);
+            Set<BarcodeReader.Format> f = EnumSet.of(all ? BarcodeReader.Format.ALL_READABLE : BarcodeReader.Format.QR_CODE);
             o.setFormats(f);
             o.setTryHarder(true);
-            o.setTryRotate(image);
+            o.setTryRotate(image || all);
             o.setTryInvert(image);
             o.setTryDownscale(image);
             o.setMaxNumberOfSymbols(255);
@@ -85,7 +89,7 @@ final class CppEngine implements QrEngine {
             BarcodeReader.Position p = r.getPosition();
             if (p != null) c = new float[]{x(p.getTopLeft()), yy(p.getTopLeft()), x(p.getTopRight()), yy(p.getTopRight()),
                     x(p.getBottomRight()), yy(p.getBottomRight()), x(p.getBottomLeft()), yy(p.getBottomLeft())};
-            out.add(new Code(t, c));
+            out.add(new Code(t, c, r.getFormat() == null ? null : Formats.label(r.getFormat().name())));
         }
         return out;
     }

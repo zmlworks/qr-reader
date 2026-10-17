@@ -1,5 +1,6 @@
 package com.zmlworks.qrreader;
 
+import android.content.Context;
 import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -58,8 +59,36 @@ final class HistoryPage {
         a.showUndo(a.getString(R.string.deleted), 0);
     }
 
+    /** Swipe-left copy. A protected code is copied only after authentication; a group copies its unprotected codes. */
     private void copy(History.Entry e) {
-        Actions.copy(a, e.kind == History.GROUP ? App.get().history().groupText(e.id) : e.text);
+        if (e.kind == History.GROUP) { Actions.copy(a, App.get().history().groupText(e.id)); return; }
+        if (e.prot) Auth.require(a, true, a.getString(R.string.auth_copy_title), () -> Actions.copy(a, e.text), null);
+        else Actions.copy(a, e.text);
+    }
+
+    /**
+     * One code row (history and multi-scan lists). Protected: a lock badge and the date and time only (no text, name,
+     * type or format). Otherwise: type or barcode format, name or text, and `sub`.
+     */
+    static void bindCode(Context c, View v, History.Entry e, String sub) {
+        TextView badge = v.findViewById(R.id.row_badge), title = v.findViewById(R.id.row_title), subV = v.findViewById(R.id.row_sub);
+        if (e.prot) {
+            android.graphics.drawable.Drawable d = c.getDrawable(R.drawable.ic_lock_small);
+            if (d != null) d.setBounds(0, 0, d.getIntrinsicWidth(), d.getIntrinsicHeight());
+            android.text.SpannableString ss = new android.text.SpannableString(" ");
+            if (d != null) ss.setSpan(new android.text.style.ImageSpan(d, android.text.style.ImageSpan.ALIGN_BOTTOM), 0, 1, 0);
+            badge.setText(ss);
+            badge.setContentDescription(c.getString(R.string.protected_title));
+            title.setText(Actions.listTime(e.time));
+            subV.setVisibility(View.GONE);
+        } else {
+            badge.setText(e.format != null ? e.format : ContentType.parse(e.text).label());
+            badge.setContentDescription(null);
+            title.setText(preview(History.label(e)));
+            subV.setVisibility(View.VISIBLE);
+            subV.setText(sub);
+        }
+        ((ImageView) v.findViewById(R.id.row_star)).setVisibility(e.fav && !e.prot ? View.VISIBLE : View.GONE);
     }
 
     static String preview(String s) {
@@ -78,23 +107,23 @@ final class HistoryPage {
             SwipeListView.reset(v);
             History.Entry e = items.get(pos);
             History h = App.get().history();
-            TextView badge = v.findViewById(R.id.row_badge), title = v.findViewById(R.id.row_title), sub = v.findViewById(R.id.row_sub);
-            ImageView star = v.findViewById(R.id.row_star);
             if (e.kind == History.GROUP) {
+                TextView badge = v.findViewById(R.id.row_badge), title = v.findViewById(R.id.row_title), sub = v.findViewById(R.id.row_sub);
                 int n = h.childCount(e.id);
-                List<History.Entry> ch = h.children(e.id);
+                String first = null;   // preview: the first code that is not protected
+                for (History.Entry c : h.children(e.id)) if (!c.prot) { first = History.label(c); break; }
                 badge.setText(a.getString(R.string.group_badge, n));
+                badge.setContentDescription(null);
                 title.setText(a.getResources().getQuantityString(R.plurals.n_codes, n, n));
                 String time = Actions.listTime(e.time);
-                sub.setText(ch.isEmpty() ? time : a.getString(R.string.sub_with_preview, time, preview(ch.get(0).text)));
+                sub.setVisibility(View.VISIBLE);
+                sub.setText(first == null ? time : a.getString(R.string.sub_with_preview, time, preview(first)));
+                v.findViewById(R.id.row_star).setVisibility(View.GONE);
             } else {
-                badge.setText(ContentType.parse(e.text).label());
-                title.setText(preview(History.label(e)));
                 String s = Actions.listTime(e.time);
                 if (e.kind == History.CHILD) s = a.getString(R.string.sub_with_preview, s, a.getString(R.string.multi_scan));
-                sub.setText(s);
+                bindCode(a, v, e, s);
             }
-            star.setVisibility(e.fav ? View.VISIBLE : View.GONE);
             return v;
         }
     }

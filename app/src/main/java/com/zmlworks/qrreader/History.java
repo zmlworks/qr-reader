@@ -25,6 +25,10 @@ public final class History {
         public boolean fav;
         /** user-given name shown instead of the text (null = none) */
         public String name;
+        /** protected: lists show only the date; opening needs authentication */
+        public boolean prot;
+        /** barcode format for non-QR codes, e.g. "EAN-13" (null = QR code) */
+        public String format;
 
         Entry(long id, long parent, int kind, long time, boolean fav, String text) {
             this.id = id; this.parent = parent; this.kind = kind; this.time = time; this.fav = fav; this.text = text;
@@ -64,13 +68,17 @@ public final class History {
      * Single-mode read. If the newest top-level entry is the same text it is moved to the top instead of being
      * duplicated.
      */
-    public Entry addSingle(String text, long now) {
+    public Entry addSingle(String text, long now) { return addSingle(text, now, null); }
+
+    /** @param format barcode format for non-QR codes (null = QR). A protected entry is never reused. */
+    public Entry addSingle(String text, long now, String format) {
         List<Entry> top = topLevel();
         if (!top.isEmpty()) {
             Entry n = top.get(0);
-            if (n.kind == SINGLE && n.text.equals(text)) { n.time = Math.max(now, n.time); changed(); return n; }
+            if (n.kind == SINGLE && !n.prot && n.text.equals(text) && eq(n.format, format)) { n.time = Math.max(now, n.time); changed(); return n; }
         }
         Entry e = new Entry(nextId++, 0, SINGLE, now, false, text);
+        e.format = format;
         entries.add(e);
         changed();
         return e;
@@ -84,11 +92,14 @@ public final class History {
     }
 
     /** Adds a code to a multi-scan group; null if that group already has this text (or the group is gone). */
-    public Entry addChild(long groupId, String text, long now) {
+    public Entry addChild(long groupId, String text, long now) { return addChild(groupId, text, now, null); }
+
+    public Entry addChild(long groupId, String text, long now, String format) {
         Entry g = get(groupId);
         if (g == null || g.kind != GROUP) return null;
         for (Entry e : entries) if (e.parent == groupId && e.text.equals(text)) return null;
         Entry c = new Entry(nextId++, groupId, CHILD, now, false, text);
+        c.format = format;
         entries.add(c);
         changed();
         return c;
@@ -140,7 +151,15 @@ public final class History {
         changed();
     }
 
-    /** What a list shows for a code: its name, else its text. */
+    /** Protects a code (not a group) or lifts the protection. */
+    public void setProtected(long id, boolean on) {
+        Entry e = get(id);
+        if (e != null && e.kind != GROUP && e.prot != on) { e.prot = on; changed(); }
+    }
+
+    private static boolean eq(String a, String b) { return a == null ? b == null : a.equals(b); }
+
+    /** What a list shows for a code: its name, else its text (callers hide protected entries). */
     public static String label(Entry e) { return e.name != null ? e.name : e.text; }
 
     /** Removes an entry (a group with all its codes; the last code of a group also removes the group). */
@@ -175,14 +194,16 @@ public final class History {
     }
 
     // ---------------- persistence: one line per entry, tab separated, text escaped ----------------
-    // QRH2: id parent kind time fav name text (QRH1 of 0.1.0 had no name column and is still read)
+    // QRH3: id parent kind time flags format name text; flags: 1 = favourite, 2 = protected.
+    // Older files are still read: QRH2 (0.2.0: id parent kind time fav name text), QRH1 (0.1.0: no name).
     public String serialize() {
-        StringBuilder b = new StringBuilder("QRH2\t").append(nextId).append('\n');
+        StringBuilder b = new StringBuilder("QRH3\t").append(nextId).append('\n');
         List<Entry> sorted = new ArrayList<>(entries);
         sorted.sort(Comparator.comparingLong(x -> x.id));
         for (Entry e : sorted) {
             b.append(e.id).append('\t').append(e.parent).append('\t').append(e.kind).append('\t').append(e.time)
-                    .append('\t').append(e.fav ? 1 : 0).append('\t').append(e.name == null ? "" : escape(e.name))
+                    .append('\t').append((e.fav ? 1 : 0) | (e.prot ? 2 : 0)).append('\t').append(e.format == null ? "" : escape(e.format))
+                    .append('\t').append(e.name == null ? "" : escape(e.name))
                     .append('\t').append(escape(e.text)).append('\n');
         }
         return b.toString();
@@ -192,18 +213,21 @@ public final class History {
         History h = new History();
         if (s == null || s.isEmpty()) return h;
         String[] lines = s.split("\n", -1);
-        boolean v2 = lines[0].startsWith("QRH2\t");
-        if (!v2 && !lines[0].startsWith("QRH1\t")) return h;
-        int cols = v2 ? 7 : 6;
+        int ver = lines[0].startsWith("QRH3\t") ? 3 : lines[0].startsWith("QRH2\t") ? 2 : lines[0].startsWith("QRH1\t") ? 1 : 0;
+        if (ver == 0) return h;
+        int cols = ver == 3 ? 8 : ver == 2 ? 7 : 6;
         try { h.nextId = Long.parseLong(lines[0].substring(5).trim()); } catch (NumberFormatException ignored) { }
         long maxId = 0;
         for (int i = 1; i < lines.length; i++) {
             String[] f = lines[i].split("\t", cols);
             if (f.length < cols) continue;
             try {
+                int flags = Integer.parseInt(f[4]);
                 Entry e = new Entry(Long.parseLong(f[0]), Long.parseLong(f[1]), Integer.parseInt(f[2]), Long.parseLong(f[3]),
-                        "1".equals(f[4]), unescape(f[cols - 1]));
-                if (v2 && !f[5].isEmpty()) e.name = unescape(f[5]);
+                        (flags & 1) != 0, unescape(f[cols - 1]));
+                e.prot = ver >= 3 && (flags & 2) != 0;
+                if (ver >= 3 && !f[5].isEmpty()) e.format = unescape(f[5]);
+                if (ver >= 2 && !f[cols - 2].isEmpty()) e.name = unescape(f[cols - 2]);
                 h.entries.add(e);
                 maxId = Math.max(maxId, e.id);
             } catch (NumberFormatException ignored) { }
@@ -239,10 +263,10 @@ public final class History {
         return b.toString();
     }
 
-    /** All texts of a group joined by newlines (for copy/share of a whole multi scan). */
+    /** The unprotected texts of a group joined by newlines (copy/share of a whole multi scan; protected codes are left out). */
     public String groupText(long groupId) {
         List<String> t = new ArrayList<>();
-        for (Entry e : children(groupId)) t.add(e.text);
+        for (Entry e : children(groupId)) if (!e.prot) t.add(e.text);
         return String.join("\n", t);
     }
 

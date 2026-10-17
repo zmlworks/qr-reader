@@ -54,12 +54,15 @@ import java.util.List;
  */
 public final class ScannerActivity extends BaseActivity implements TextureView.SurfaceTextureListener {
     private static final int REQ_CAM = 1, REQ_IMAGE = 2;
+    static final String EXTRA_ALL_CODES = "all_codes";
+    /** after a single-mode read the preview stays frozen with the code outlined this long before the detail opens */
+    static final long FREEZE_MS = 250;
 
     private TextureView preview;
     private OverlayView overlay;
     private ZoomBarView zoomBar;
     private ImageButton btnClose, btnFlash, btnMulti, btnImage;
-    private TextView pill, multiBadge, message;
+    private TextView pill, multiBadge, message, modeBadge;
     private Button messageBtn;
     private View controls;
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -81,7 +84,10 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     private int camGen;              // bumped by closeCamera(): late callbacks of an older open are dropped
     private volatile boolean camInfoKnown;
     private byte[] yBuf;
-    private DecodePipeline pipe;
+    private DecodePipeline pipe, pipeAll;   // QR only / every format (all-codes mode, made on first use)
+    private volatile boolean allMode;
+    private boolean frozen;               // a single read is being shown (no new outlines, camera stopped)
+    private Runnable pendingOpen;
 
     // UI state (UI thread)
     private volatile boolean torch, multi;
@@ -102,6 +108,8 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         btnFlash = findViewById(R.id.btn_flash);
         btnMulti = findViewById(R.id.btn_multi);
         btnImage = findViewById(R.id.btn_image);
+        modeBadge = findViewById(R.id.mode_badge);
+        modeBadge.setOnClickListener(v -> { App.get().allCodes = false; renderMode(); });
         pill = findViewById(R.id.pill);
         multiBadge = findViewById(R.id.multi_badge);
         message = findViewById(R.id.message);
@@ -127,6 +135,7 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
             pipe = new DecodePipeline(e != null ? e : new JavaEngine(), true);
         });
         multi = App.get().prefs().multi();
+        takeMode(getIntent());
         if (b == null && App.get().prefs().zoomHints() < 3) {
             App.get().prefs().countZoomHint();
             hintUntil = SystemClock.uptimeMillis() + 3500;
@@ -157,12 +166,28 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     @Override protected void onNewIntent(Intent i) {
         super.onNewIntent(i);
         setIntent(i);
+        takeMode(i);
+    }
+
+    /** Settings' hidden line starts an all-codes session. */
+    private void takeMode(Intent i) {
+        if (i != null && i.getBooleanExtra(EXTRA_ALL_CODES, false)) {
+            App.get().allCodes = true;
+            i.removeExtra(EXTRA_ALL_CODES);
+        }
+    }
+
+    private void renderMode() {
+        allMode = App.get().allCodes;
+        modeBadge.setVisibility(allMode ? View.VISIBLE : View.GONE);
     }
 
     @Override protected void onResume() {
         super.onResume();
         // always back to the scanning state
         handled = false;
+        frozen = false;
+        renderMode();
         logic.touch(SystemClock.uptimeMillis());   // a code still in view after coming back stays suppressed
         applyHandedness();
         renderButtons();
@@ -181,6 +206,7 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
 
     @Override protected void onPause() {
         ui.removeCallbacks(pillLoop);
+        if (pendingOpen != null) { ui.removeCallbacks(pendingOpen); pendingOpen = null; }   // the read is saved already
         stopCamera();
         lastZoom = zoom;
         torch = false;
@@ -229,13 +255,16 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         FrameLayout.LayoutParams bl = (FrameLayout.LayoutParams) findViewById(R.id.buttons).getLayoutParams();
         bl.gravity = Gravity.TOP | (left ? Gravity.START : Gravity.END);
         findViewById(R.id.buttons).setLayoutParams(bl);
+        FrameLayout.LayoutParams tl = (FrameLayout.LayoutParams) findViewById(R.id.buttons_top).getLayoutParams();
+        tl.gravity = Gravity.TOP | (left ? Gravity.START : Gravity.END);
+        findViewById(R.id.buttons_top).setLayoutParams(tl);
         positionButtons();
         FrameLayout.LayoutParams zl = (FrameLayout.LayoutParams) zoomBar.getLayoutParams();
         zl.gravity = Gravity.CENTER_VERTICAL | (left ? Gravity.END : Gravity.START);
         zoomBar.setLayoutParams(zl);
     }
 
-    /** Keeps the centre of × at half the screen height (the column hangs above it). */
+    /** Keeps the centre of × at half the screen height (flash hangs above it). */
     private void positionButtons() {
         View col = findViewById(R.id.buttons);
         if (controls.getHeight() == 0 || btnClose.getHeight() == 0) return;
@@ -252,12 +281,14 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
             i = new Intent("android.provider.action.PICK_IMAGES").setType("image/*");   // the system photo picker
         else
             i = new Intent(Intent.ACTION_GET_CONTENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE);
+        App.get().holdForeground = true;   // the picker is not "leaving the app" (keeps an all-codes session)
         try {
             startActivityForResult(i, REQ_IMAGE);
         } catch (android.content.ActivityNotFoundException e) {
             try {
                 startActivityForResult(new Intent(Intent.ACTION_GET_CONTENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE), REQ_IMAGE);
             } catch (android.content.ActivityNotFoundException e2) {
+                App.get().holdForeground = false;
                 flash(getString(R.string.no_app));
             }
         }
@@ -265,18 +296,21 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
 
     @Override protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
-        if (req != REQ_IMAGE || res != RESULT_OK || data == null || data.getData() == null) return;
+        if (req != REQ_IMAGE) return;
+        App.get().holdForeground = false;
+        if (res != RESULT_OK || data == null || data.getData() == null) return;
         final Uri uri = data.getData();
+        final boolean all = App.get().allCodes;
         readingImage = true;
         flash(getString(R.string.reading_image));
         new Thread(() -> {
-            final List<String> codes = PhotoReader.read(getApplicationContext(), uri);
+            final List<QrEngine.Code> codes = PhotoReader.read(getApplicationContext(), uri, all);
             ui.post(() -> onImageCodes(codes));
         }, "image-decode").start();
     }
 
     /** @param codes null = the picture could not be read */
-    void onImageCodes(List<String> codes) {
+    void onImageCodes(List<QrEngine.Code> codes) {
         readingImage = false;
         if (isFinishing() || isDestroyed()) return;
         if (codes == null) { flash(getString(R.string.image_unreadable)); return; }
@@ -286,12 +320,12 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         long now = System.currentTimeMillis();
         Actions.vibrate(this, 40);
         if (codes.size() == 1) {
-            History.Entry e = h.addSingle(codes.get(0), now);
+            History.Entry e = h.addSingle(codes.get(0).text, now, codes.get(0).format);
             startActivity(new Intent(this, DetailActivity.class).putExtra(DetailActivity.EXTRA_ID, e.id));
             return;
         }
         History.Entry g = h.newGroup(now);
-        for (String t : codes) h.addChild(g.id, t, now);
+        for (QrEngine.Code c : codes) h.addChild(g.id, c.text, now, c.format);
         startActivities(new Intent[]{new Intent(this, MainActivity.class), new Intent(this, CodesActivity.class)
                 .putExtra(CodesActivity.EXTRA_GROUP, g.id).putExtra(CodesActivity.EXTRA_JUST_SCANNED, true)});
     }
@@ -339,6 +373,8 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     }
 
     private void close() {
+        App.get().allCodes = false;   // × ends an all-codes session
+        allMode = false;
         long g = groupId;
         int n = logic.collectedCount();
         endMultiSession();
@@ -396,21 +432,34 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     }
 
     // ---------------- results (UI thread) ----------------
-    private void onSingle(String text) {
+    /** A single-mode read: buzz, save, freeze the preview with the code outlined for {@link #FREEZE_MS}, then open it. */
+    private void onSingle(QrEngine.Code c, List<QrEngine.Code> codes) {
         if (handled || readingImage || isFinishing()) return;
         handled = true;
         Actions.vibrate(this, 40);
-        History.Entry e = App.get().history().addSingle(text, System.currentTimeMillis());
-        startActivity(new Intent(this, DetailActivity.class).putExtra(DetailActivity.EXTRA_ID, e.id));
-        overridePendingTransition(R.anim.fade_in_fast, 0);
+        final History.Entry e = App.get().history().addSingle(c.text, System.currentTimeMillis(), c.format);
+        List<String> fresh = new ArrayList<>();
+        fresh.add(c.text);
+        overlay.hold(shapes(codes, fresh), FREEZE_MS);
+        frozen = true;
+        cam.post(() -> {   // stop the repeating request: the preview keeps its last frame, no more frames to decode
+            if (session != null) try { session.stopRepeating(); } catch (CameraAccessException | IllegalStateException ignored) { }
+        });
+        pendingOpen = () -> {
+            pendingOpen = null;
+            if (isFinishing()) return;
+            startActivity(new Intent(this, DetailActivity.class).putExtra(DetailActivity.EXTRA_ID, e.id));
+            overridePendingTransition(R.anim.fade_in_fast, 0);
+        };
+        ui.postDelayed(pendingOpen, FREEZE_MS);
     }
 
-    private void onCollected(String text) {
+    private void onCollected(String text, String format) {
         if (!multi) return;
         History h = App.get().history();
         long now = System.currentTimeMillis();
         if (groupId == 0 || h.get(groupId) == null) groupId = h.newGroup(now).id;
-        h.addChild(groupId, text, now);
+        h.addChild(groupId, text, now, format);
         Actions.vibrate(this, 25);
         renderButtons();
         renderPill();
@@ -693,6 +742,10 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         int w, h;
         try {
             if (pipe == null) return;
+            if (allMode && pipeAll == null) {   // camera thread
+                QrEngine e = CppEngine.create(false, true);
+                pipeAll = new DecodePipeline(e != null ? e : new JavaEngine(), true);   // no native library: QR only
+            }
             w = img.getWidth(); h = img.getHeight();
             Image.Plane p = img.getPlanes()[0];
             ByteBuffer buf = p.getBuffer();
@@ -702,33 +755,44 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
             else for (int y = 0; y < h; y++) { buf.position(y * rs); buf.get(yBuf, y * w, w); }
         } finally { img.close(); }
         long now = SystemClock.uptimeMillis();
-        codes = pipe.decode(yBuf, w, h, now);
+        codes = (allMode ? pipeAll : pipe).decode(yBuf, w, h, now);
         if (codes.isEmpty() && !lastHadShapes) return;
         lastHadShapes = !codes.isEmpty();
         if (multi) {
             final List<String> fresh = new ArrayList<>();
-            for (QrEngine.Code c : codes) if (logic.collect(c.text)) fresh.add(c.text);
+            final List<QrEngine.Code> freshCodes = new ArrayList<>();
+            for (QrEngine.Code c : codes) if (logic.collect(c.text)) { fresh.add(c.text); freshCodes.add(c); }
             postShapes(codes, fresh);
-            if (!fresh.isEmpty()) ui.post(() -> { for (String t : fresh) onCollected(t); });
+            if (!fresh.isEmpty()) ui.post(() -> { for (QrEngine.Code c : freshCodes) onCollected(c.text, c.format); });
         } else {
             final String t = logic.single(codes, w, h, now);
-            postShapes(codes, null);
-            if (t != null) ui.post(() -> onSingle(t));
+            if (t == null) { postShapes(codes, null); return; }
+            QrEngine.Code read = null;
+            for (QrEngine.Code c : codes) if (c.text.equals(t)) read = c;
+            final QrEngine.Code fr = read;
+            final List<QrEngine.Code> all = codes;
+            ui.post(() -> onSingle(fr, all));
         }
     }
 
     private void postShapes(final List<QrEngine.Code> codes, final List<String> fresh) {
         ui.post(() -> {
-            if (size == null) return;
-            List<OverlayView.Shape> s = new ArrayList<>();
-            for (QrEngine.Code c : codes) {
-                if (c.corners == null) continue;
-                float[] v = new float[8];
-                for (int i = 0; i < 8; i += 2) frameToView(c.corners[i], c.corners[i + 1], v, i);
-                s.add(new OverlayView.Shape(v, fresh != null && fresh.contains(c.text)));
-            }
-            overlay.setShapes(s);
+            if (size == null || frozen) return;
+            overlay.setShapes(shapes(codes, fresh));
         });
+    }
+
+    /** outlines in view coordinates (UI thread) */
+    private List<OverlayView.Shape> shapes(List<QrEngine.Code> codes, List<String> fresh) {
+        List<OverlayView.Shape> s = new ArrayList<>();
+        if (size == null) return s;
+        for (QrEngine.Code c : codes) {
+            if (c.corners == null) continue;
+            float[] v = new float[8];
+            for (int i = 0; i < 8; i += 2) frameToView(c.corners[i], c.corners[i + 1], v, i);
+            s.add(new OverlayView.Shape(v, fresh != null && fresh.contains(c.text)));
+        }
+        return s;
     }
 
     // ---------------- gestures: vertical swipe = zoom, tap = focus ----------------
@@ -777,7 +841,9 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     // for the JVM screenshot test
     void setPreviewForTest(int w, int h, int orientation) { size = new Size(w, h); sensorOrientation = orientation; configureTransform(); }
     void showShapesForTest(List<QrEngine.Code> codes, List<String> fresh) { postShapes(codes, fresh); }
-    void collectForTest(String text) { if (logic.collect(text)) onCollected(text); }
+    void collectForTest(String text) { if (logic.collect(text)) onCollected(text, null); }
+    void readForTest(QrEngine.Code c) { List<QrEngine.Code> l = new ArrayList<>(); l.add(c); onSingle(c, l); }
+    boolean allModeForTest() { return allMode; }
     void setZoomForTest(float min, float max, float z) { zoomMin = min; zoomMax = max; zoomBar.setRange(min, max); zoom = z; zoomBar.setZoom(z); }
     View zoomBarForTest() { return zoomBar; }
     CharSequence pillTextForTest() { return pill.getVisibility() == View.VISIBLE ? pill.getText() : null; }

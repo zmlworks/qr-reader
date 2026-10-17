@@ -35,4 +35,9 @@ public abstract class BaseActivity extends Activity {
         });
         root.requestApplyInsets();
     }
+
+    @Override protected void onActivityResult(int req, int res, android.content.Intent data) {
+        super.onActivityResult(req, res, data);
+        Auth.onActivityResult(req, res);
+    }
 }

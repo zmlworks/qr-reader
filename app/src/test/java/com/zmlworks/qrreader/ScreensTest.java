@@ -57,6 +57,12 @@ public class ScreensTest {
     @Before public void setUp() {
         App app = (App) RuntimeEnvironment.getApplication();
         app.wasInBackground = false;
+        app.authUntil = 0;
+        app.allCodes = false;
+        app.holdForeground = false;
+        Auth.testResult = null;
+        Auth.testPrompts = 0;
+        shadowOf(app.getSystemService(android.app.KeyguardManager.class)).setIsDeviceSecure(true);
         shadowOf(app).grantPermissions(Manifest.permission.CAMERA);
         Prefs p = app.prefs();
         p.setLeftHanded(false);
@@ -194,16 +200,32 @@ public class ScreensTest {
         return s;
     }
 
-    /** Right column, top to bottom: multi, image, flash, (wider gap) ×, with × at half the screen height. */
+    /** Multi and image at the top (below the status bar), flash a bit above ×, × at half the screen height; one side. */
     static void checkColumn(ScannerActivity s) {
         View multi = s.findViewById(R.id.btn_multi), image = s.findViewById(R.id.btn_image), flash = s.findViewById(R.id.btn_flash),
                 close = s.findViewById(R.id.btn_close);
+        assertTrue("multi near the top: " + topIn(multi), topIn(multi) < dp(s, 80));
         assertTrue(centerY(multi) < centerY(image));
-        assertTrue(centerY(image) < centerY(flash));
+        assertTrue("image near the top too", topIn(image) + image.getHeight() < dp(s, 160));
+        assertTrue("a big gap down to flash", topIn(flash) - (topIn(image) + image.getHeight()) > dp(s, 150));
         assertTrue(centerY(flash) < centerY(close));
-        int g1 = topIn(flash) - (topIn(image) + image.getHeight()), g2 = topIn(close) - (topIn(flash) + flash.getHeight());
-        assertTrue("flash sits a bit higher above ×: " + g1 + " / " + g2, g2 > g1 + dp(s, 12));
+        int g2 = topIn(close) - (topIn(flash) + flash.getHeight());
+        assertTrue("flash sits a bit above ×: " + g2, g2 >= dp(s, 24) && g2 <= dp(s, 48));
         assertTrue("× at half height: " + centerY(close), Math.abs(centerY(close) - H / 2) <= dp(s, 2));
+        for (View v : new View[]{image, flash, close}) assertEquals("same column", centerX(multi), centerX(v));
+    }
+
+    static int centerX(View v) { int[] l = new int[2]; v.getLocationInWindow(l); return l[0] + v.getWidth() / 2; }
+
+    static String rowTitle(SwipeListView list, int i) { return ((TextView) list.getChildAt(i).findViewById(R.id.row_title)).getText().toString(); }
+
+    static void swipeLeft(SwipeListView list, View row) {
+        int y = row.getTop() + row.getHeight() / 2;
+        long t = android.os.SystemClock.uptimeMillis();
+        list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, 1100, y, 0));
+        for (int i = 1; i <= 10; i++) list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + i * 16, android.view.MotionEvent.ACTION_MOVE, 1100 - i * 90, y, 0));
+        list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 200, android.view.MotionEvent.ACTION_UP, 200, y, 0));
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
     }
 
     @Test public void scannerRightHanded() throws Exception {
@@ -615,5 +637,274 @@ public class ScreensTest {
         Intent next = shadowOf(ac.get()).getNextStartedActivity();
         assertNotNull(next);
         assertEquals(ScannerActivity.class.getName(), next.getComponent().getClassName());
+    }
+
+    // ---- 0.3.0 ----
+
+    static DetailActivity detail(long id) {
+        Intent i = new Intent(RuntimeEnvironment.getApplication(), DetailActivity.class).putExtra(DetailActivity.EXTRA_ID, id);
+        DetailActivity d = Robolectric.buildActivity(DetailActivity.class, i).setup().get();
+        ShadowLooper.idleMainLooper();
+        return d;
+    }
+
+    static boolean secureFlag(Activity a) {
+        return (a.getWindow().getAttributes().flags & android.view.WindowManager.LayoutParams.FLAG_SECURE) != 0;
+    }
+
+    @Test public void protectionLockDetailAndList() throws Exception {
+        // ON: no prompt, the lock button turns filled, the page becomes FLAG_SECURE
+        DetailActivity d = detail(wifi);
+        android.widget.ImageButton lock = d.findViewById(R.id.btn_lock);
+        assertEquals(d.getString(R.string.protect), lock.getContentDescription().toString());
+        assertTrue(!secureFlag(d));
+        lock.performClick();
+        assertTrue(h.get(wifi).prot);
+        assertEquals(0, Auth.testPrompts);
+        assertEquals(d.getString(R.string.unprotect), lock.getContentDescription().toString());
+        assertTrue(secureFlag(d));
+        assertTrue(!d.lockedForTest());
+        shot(d, "detail-protected", null);
+        h.setFavorite(wifi, true);
+        // history list: only the date and time + a lock, no name / text / type / star
+        MainActivity m = Robolectric.buildActivity(MainActivity.class).setup().get();
+        layout(m);
+        SwipeListView list = m.findViewById(R.id.list);
+        View row = list.getChildAt(1);
+        assertEquals(wifi, list.getAdapter().getItemId(1));
+        assertEquals(Actions.listTime(h.get(wifi).time), rowTitle(list, 1));
+        assertEquals(View.GONE, row.findViewById(R.id.row_sub).getVisibility());
+        assertEquals(View.GONE, row.findViewById(R.id.row_star).getVisibility());
+        assertEquals(" ", ((TextView) row.findViewById(R.id.row_badge)).getText().toString());
+        shot(m, "history-protected", null);
+        // swipe-left copy needs authentication: refused -> clipboard untouched
+        android.content.ClipboardManager cm = m.getSystemService(android.content.ClipboardManager.class);
+        cm.setPrimaryClip(android.content.ClipData.newPlainText("x", "before"));
+        Auth.testResult = false;
+        swipeLeft(list, row);
+        assertEquals(1, Auth.testPrompts);
+        assertEquals("before", cm.getPrimaryClip().getItemAt(0).getText().toString());
+        Auth.testResult = true;
+        layout(m);
+        swipeLeft(list, list.getChildAt(1));
+        assertEquals("WIFI:T:WPA;S:Cafe-Guest;P:espresso2026;;", cm.getPrimaryClip().getItemAt(0).getText().toString());
+        assertEquals(2, Auth.testPrompts);
+        // the 1-minute window: opening right after needs no new prompt
+        DetailActivity d2 = detail(wifi);
+        assertTrue(!d2.lockedForTest());
+        assertEquals(2, Auth.testPrompts);
+        // after the window (or leaving the app) it asks; refused -> locked page, nothing shown
+        App.get().authUntil = 0;
+        Auth.testResult = false;
+        DetailActivity d3 = detail(wifi);
+        assertEquals(3, Auth.testPrompts);
+        assertTrue(d3.lockedForTest());
+        assertTrue(secureFlag(d3));
+        assertEquals(View.GONE, d3.findViewById(R.id.content).getVisibility());
+        for (int id : new int[]{R.id.btn_lock, R.id.btn_name, R.id.btn_fav, R.id.btn_delete})
+            assertEquals(View.GONE, d3.findViewById(id).getVisibility());
+        assertEquals(d3.getString(R.string.protected_title), ((TextView) d3.findViewById(R.id.title)).getText().toString());
+        shot(d3, "detail-locked", null);
+        // Unlock -> accepted -> content
+        Auth.testResult = true;
+        d3.findViewById(R.id.btn_unlock).performClick();
+        assertTrue(!d3.lockedForTest());
+        assertEquals("Café guest Wi-Fi", ((TextView) d3.findViewById(R.id.name)).getText().toString());
+        // OFF always asks, even inside the window
+        assertTrue(Auth.recentlyOk());
+        Auth.testResult = false;
+        d3.findViewById(R.id.btn_lock).performClick();
+        assertEquals(5, Auth.testPrompts);
+        assertTrue(h.get(wifi).prot);
+        Auth.testResult = true;
+        d3.findViewById(R.id.btn_lock).performClick();
+        assertEquals(6, Auth.testPrompts);
+        assertTrue(!h.get(wifi).prot);
+        assertTrue(!secureFlag(d3));
+    }
+
+    @Test public void leavingTheAppEndsTheAuthWindow() {
+        ActivityController<MainActivity> ac = Robolectric.buildActivity(MainActivity.class).setup();
+        Auth.testResult = true;
+        Auth.require(ac.get(), true, "t", () -> { }, null);
+        assertTrue(Auth.recentlyOk());
+        ac.pause().stop();
+        assertTrue(!Auth.recentlyOk());
+    }
+
+    @Test public void protectionNeedsAScreenLock() throws Exception {
+        shadowOf(App.get().getSystemService(android.app.KeyguardManager.class)).setIsDeviceSecure(false);
+        DetailActivity d = detail(url);
+        d.findViewById(R.id.btn_lock).performClick();
+        assertTrue(!h.get(url).prot);
+        assertTrue(d.lastDialog.isShowing());
+        shot(d, "detail-no-screen-lock", null, d.lastDialog);
+        d.lastDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
+        assertEquals(android.provider.Settings.ACTION_SECURITY_SETTINGS, shadowOf(d).getNextStartedActivity().getAction());
+        // a lock removed later: protected items still open (with a message), nothing is lost
+        h.setProtected(jp, true);
+        DetailActivity d2 = detail(jp);
+        assertTrue(!d2.lockedForTest());
+    }
+
+    @Test public void protectedCodesStayHiddenInGroupLists() throws Exception {
+        List<History.Entry> ch = h.children(group);
+        h.setProtected(ch.get(0).id, true);
+        // the history row previews the first unprotected code
+        MainActivity m = Robolectric.buildActivity(MainActivity.class).setup().get();
+        layout(m);
+        SwipeListView hl = m.findViewById(R.id.list);
+        for (int k = 0; k < hl.getChildCount(); k++)
+            if (hl.getAdapter().getItemId(k) == group) {
+                String sub = ((TextView) hl.getChildAt(k).findViewById(R.id.row_sub)).getText().toString();
+                assertTrue(sub, sub.contains("INV-2026-10-102") && !sub.contains("INV-2026-10-101"));
+            }
+        Intent i = new Intent(RuntimeEnvironment.getApplication(), CodesActivity.class).putExtra(CodesActivity.EXTRA_GROUP, group)
+                .putExtra(CodesActivity.EXTRA_JUST_SCANNED, true);
+        CodesActivity c = Robolectric.buildActivity(CodesActivity.class, i).setup().get();
+        layout(c);
+        SwipeListView list = c.findViewById(R.id.list);
+        assertEquals(Actions.listTime(ch.get(0).time), rowTitle(list, 0));
+        assertEquals(View.GONE, list.getChildAt(0).findViewById(R.id.row_sub).getVisibility());
+        for (int k = 0; k < list.getChildCount(); k++) {
+            View r = list.getChildAt(k);
+            assertTrue(!((TextView) r.findViewById(R.id.row_title)).getText().toString().contains("INV-2026-10-101"));
+        }
+        shot(c, "just-scanned-protected", null);
+        // Copy all leaves it out
+        c.findViewById(R.id.btn_copy_all).performClick();
+        android.content.ClipboardManager cm = c.getSystemService(android.content.ClipboardManager.class);
+        String all = cm.getPrimaryClip().getItemAt(0).getText().toString();
+        assertTrue(!all.contains("INV-2026-10-101"));
+        assertTrue(all.contains("INV-2026-10-105"));
+        // swipe copy of the protected code asks
+        Auth.testResult = false;
+        swipeLeft(list, list.getChildAt(0));
+        assertEquals(1, Auth.testPrompts);
+        assertEquals(all, cm.getPrimaryClip().getItemAt(0).getText().toString());
+    }
+
+    @Test public void scannerAllCodesModeFreezeAndFormats() throws Exception {
+        Intent in = new Intent(RuntimeEnvironment.getApplication(), ScannerActivity.class).putExtra(ScannerActivity.EXTRA_ALL_CODES, true);
+        ActivityController<ScannerActivity> ac = Robolectric.buildActivity(ScannerActivity.class, in).setup();
+        ScannerActivity s = ac.get();
+        s.findViewById(R.id.preview).setVisibility(View.INVISIBLE);
+        ((View) s.findViewById(R.id.preview).getParent()).setBackground(null);
+        s.getWindow().setBackgroundDrawable(null);
+        for (int i = 0; i < 50; i++) { Thread.sleep(10); ShadowLooper.idleMainLooper(); }
+        s.hideMessageForTest();
+        s.setZoomForTest(1, 8, 2.4f);
+        assertTrue(App.get().allCodes);
+        assertTrue(s.allModeForTest());
+        TextView badge = s.findViewById(R.id.mode_badge);
+        assertEquals(View.VISIBLE, badge.getVisibility());
+        assertEquals("All codes", badge.getText().toString());
+        layout(s);
+        checkColumn(s);
+        assertTrue("badge at the top centre", Math.abs(centerX(badge) - W / 2) <= 2 && topIn(badge) < dp(s, 80));
+        View multi = s.findViewById(R.id.btn_multi);
+        int[] bl = new int[2], ml = new int[2];
+        badge.getLocationInWindow(bl);
+        multi.getLocationInWindow(ml);
+        assertTrue("badge clear of the buttons", bl[0] + badge.getWidth() < ml[0]);
+        shot(s, "scanner-all-codes", fakeCamera(new String[0], new float[0][], new ArrayList<>()));
+        // a read: saved at once with its format, the detail opens after the freeze
+        float[] corners = {300, 1100, 900, 1100, 900, 1400, 300, 1400};
+        s.readForTest(new QrEngine.Code("4006381333931", corners, "EAN-13"));
+        assertEquals("4006381333931", h.topLevel().get(0).text);
+        assertEquals("EAN-13", h.topLevel().get(0).format);
+        assertEquals(null, shadowOf(s).getNextStartedActivity());
+        ShadowLooper.idleMainLooper(ScannerActivity.FREEZE_MS - 50, java.util.concurrent.TimeUnit.MILLISECONDS);
+        assertEquals("still frozen", null, shadowOf(s).getNextStartedActivity());
+        ShadowLooper.idleMainLooper(60, java.util.concurrent.TimeUnit.MILLISECONDS);
+        Intent di = shadowOf(s).getNextStartedActivity();
+        assertEquals(DetailActivity.class.getName(), di.getComponent().getClassName());
+        // format on the detail page and in the list
+        DetailActivity d = detail(di.getLongExtra(DetailActivity.EXTRA_ID, 0));
+        assertEquals("EAN-13", ((TextView) d.findViewById(R.id.title)).getText().toString());
+        shot(d, "detail-ean13", null);
+        MainActivity m = Robolectric.buildActivity(MainActivity.class).setup().get();
+        layout(m);
+        SwipeListView list = m.findViewById(R.id.list);
+        assertEquals("EAN-13", ((TextView) list.getChildAt(0).findViewById(R.id.row_badge)).getText().toString());
+        shot(m, "history-formats", null);
+        // tapping the badge ends the mode
+        badge.performClick();
+        assertTrue(!App.get().allCodes);
+        assertEquals(View.GONE, badge.getVisibility());
+    }
+
+    @Test public void allCodesSessionEndsWithCloseOrLeaving() {
+        Intent in = new Intent(RuntimeEnvironment.getApplication(), ScannerActivity.class).putExtra(ScannerActivity.EXTRA_ALL_CODES, true);
+        ActivityController<ScannerActivity> ac = Robolectric.buildActivity(ScannerActivity.class, in).setup();
+        assertTrue(App.get().allCodes);
+        ac.pause().stop();
+        assertTrue("leaving the app ends it", !App.get().allCodes);
+        ActivityController<ScannerActivity> ac2 = Robolectric.buildActivity(ScannerActivity.class,
+                new Intent(RuntimeEnvironment.getApplication(), ScannerActivity.class).putExtra(ScannerActivity.EXTRA_ALL_CODES, true)).setup();
+        assertTrue(App.get().allCodes);
+        // the photo picker is not leaving the app
+        ac2.get().findViewById(R.id.btn_image).performClick();
+        assertTrue(App.get().holdForeground);
+        ac2.pause().stop();
+        assertTrue(App.get().allCodes);
+        ac2.start().resume();
+        App.get().holdForeground = false;
+        ac2.get().findViewById(R.id.btn_close).performClick();
+        assertTrue("× ends it", !App.get().allCodes);
+    }
+
+    @Test public void settingsOnceLineStartsAllCodes() throws Exception {
+        Intent i = new Intent(RuntimeEnvironment.getApplication(), MainActivity.class).putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_SETTINGS);
+        MainActivity m = Robolectric.buildActivity(MainActivity.class, i).setup().get();
+        TextView once = m.findViewById(R.id.set_once);
+        assertEquals("Once in a blue moon, a code comes in stripes.", once.getText().toString());
+        layout(m);
+        // the last row of the page
+        android.view.ViewGroup col = (android.view.ViewGroup) once.getParent();
+        assertEquals(once, col.getChildAt(col.getChildCount() - 1));
+        View page = (View) col.getParent();
+        page.scrollTo(0, 100000);
+        shot(m, "settings-once", null);
+        once.performClick();
+        Intent next = shadowOf(m).getNextStartedActivity();
+        assertEquals(ScannerActivity.class.getName(), next.getComponent().getClassName());
+        assertTrue(next.getBooleanExtra(ScannerActivity.EXTRA_ALL_CODES, false));
+        assertTrue(m.isFinishing());
+    }
+
+    @Test public void createTapTogglesBrightness() throws Exception {
+        Intent i = new Intent(RuntimeEnvironment.getApplication(), MainActivity.class).putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_CREATE);
+        ActivityController<MainActivity> ac = Robolectric.buildActivity(MainActivity.class, i).setup();
+        MainActivity m = ac.get();
+        ((EditText) m.findViewById(R.id.input)).setText("https://github.com/zmlworks/qr-reader");
+        waitFor(() -> m.createPage.qrForTest() != null);
+        View box = m.findViewById(R.id.qr_box);
+        TextView hint = m.findViewById(R.id.qr_hint);
+        android.view.WindowManager.LayoutParams lp = m.getWindow().getAttributes();
+        assertEquals(android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE, lp.screenBrightness, 0f);
+        box.performClick();
+        assertEquals(1f, m.getWindow().getAttributes().screenBrightness, 0f);
+        assertEquals(View.VISIBLE, hint.getVisibility());
+        assertEquals("Brightness max", hint.getText().toString());
+        shot(m, "create-brightness-max", null);
+        ShadowLooper.idleMainLooper(1300, java.util.concurrent.TimeUnit.MILLISECONDS);
+        assertEquals("hint gone after about a second", View.GONE, hint.getVisibility());
+        box.performClick();
+        assertEquals(android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE, m.getWindow().getAttributes().screenBrightness, 0f);
+        assertEquals("Brightness normal", hint.getText().toString());
+        // leaving the page restores it
+        box.performClick();
+        assertTrue(m.createPage.brightForTest());
+        m.select(MainActivity.TAB_HISTORY);
+        assertEquals(android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE, m.getWindow().getAttributes().screenBrightness, 0f);
+        // and so does leaving the app
+        m.select(MainActivity.TAB_CREATE);
+        box.performClick();
+        assertEquals(1f, m.getWindow().getAttributes().screenBrightness, 0f);
+        ac.pause();
+        assertEquals(android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE, m.getWindow().getAttributes().screenBrightness, 0f);
+        assertTrue(!m.createPage.brightForTest());
     }
 }

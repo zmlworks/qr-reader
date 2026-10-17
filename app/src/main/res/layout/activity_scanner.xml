@@ -28,14 +28,37 @@
             android:layout_height="300dp"
             android:layout_gravity="center_vertical|start" />
 
-        <TextView
-            android:id="@+id/pill"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="top|center_horizontal"
             android:layout_marginTop="8dp"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+        <!-- hidden all-codes mode (tap = back to QR only) -->
+        <TextView
+            android:id="@+id/mode_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/mode_badge_bg"
+            android:paddingStart="12dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="4dp"
+            android:text="@string/all_codes_badge"
+            android:textColor="#FF5BE37D"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/pill"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:background="@drawable/pill_bg"
-            android:maxWidth="300dp"
+            android:maxWidth="208dp"
             android:maxLines="2"
             android:ellipsize="end"
             android:paddingStart="16dp"
@@ -45,6 +68,7 @@
             android:textColor="#FFFFFF"
             android:textSize="14sp"
             android:visibility="gone" />
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -72,10 +96,9 @@
                 android:visibility="gone" />
         </LinearLayout>
 
-        <!-- top to bottom: multi, read from image, flash, then (after a wider gap) × at about half the screen height;
-             ScannerActivity keeps × there (top margin) and mirrors the column for left-handed use -->
+        <!-- near the top (below the status bar): multi, read from image; mirrored for left-handed use -->
         <LinearLayout
-            android:id="@+id/buttons"
+            android:id="@+id/buttons_top"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="top|end"
@@ -89,6 +112,7 @@
                 <ImageButton
                     android:id="@+id/btn_multi"
                     style="@style/ScanButton"
+                    android:layout_marginTop="0dp"
                     android:contentDescription="@string/multi_on"
                     android:src="@drawable/ic_multi" />
 
@@ -113,10 +137,21 @@
                 style="@style/ScanButton"
                 android:contentDescription="@string/read_image"
                 android:src="@drawable/ic_image" />
+        </LinearLayout>
+
+        <!-- flash, then (after a wider gap) × at about half the screen height; ScannerActivity keeps × there -->
+        <LinearLayout
+            android:id="@+id/buttons"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
 
             <ImageButton
                 android:id="@+id/btn_flash"
                 style="@style/ScanButton"
+                android:layout_marginTop="0dp"
                 android:contentDescription="@string/flash_on"
                 android:src="@drawable/ic_flash_off" />
 

@@ -19,12 +19,14 @@ public final class App extends Application implements Application.ActivityLifecy
     boolean wasInBackground = true;
     /** the last removal that can still be undone (one level, like the snackbar) */
     History.Removal pendingUndo;
-    /** protected items open without a new prompt until then (uptimeMillis); cleared when the app goes to the background */
+    /** protected actions need no new prompt until then (elapsedRealtime); also across leaving the app, see Auth */
     long authUntil;
     /** hidden all-codes mode: on for one scanning session (until × or leaving the app) */
     boolean allCodes;
     /** a system screen of ours is up (photo picker, confirm screen lock): not "leaving the app" */
     boolean holdForeground;
+    /** bumped each time the app goes to the background: a new "visit" (the scanner forgets its last read) */
+    int visit;
 
     @Override public void onCreate() {
         super.onCreate();
@@ -56,7 +58,7 @@ public final class App extends Application implements Application.ActivityLifecy
     @Override public void onActivityStopped(Activity a) {
         if (--started == 0 && !a.isChangingConfigurations() && !holdForeground) {
             wasInBackground = true;
-            authUntil = 0;      // the re-auth window ends when the user leaves the app
+            visit++;
             allCodes = false;   // so does an all-codes session
         }
     }

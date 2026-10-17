@@ -10,6 +10,66 @@
         android:orientation="vertical"
         android:paddingBottom="24dp">
 
+        <!-- Clear all history at the top; the checkbox on the right decides about favorites -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:id="@+id/set_clear"
+                style="@style/SettingRow"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:paddingStart="20dp"
+                android:paddingEnd="8dp"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/SettingTitle"
+                    android:text="@string/clear_history"
+                    android:textColor="@color/danger" />
+
+                <TextView
+                    android:id="@+id/clear_value"
+                    style="@style/SettingSub" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/set_clear_fav"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:background="?android:attr/selectableItemBackground"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingEnd="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/incl_favorites"
+                    android:textColor="@color/dim"
+                    android:textSize="13sp" />
+
+                <CheckBox
+                    android:id="@+id/cb_clear_fav"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:clickable="false"
+                    android:focusable="false"
+                    android:importantForAccessibility="no" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginBottom="8dp"
+            android:background="@color/line" />
+
         <LinearLayout
             android:id="@+id/set_left"
             style="@style/SettingRow"
@@ -127,27 +187,20 @@
             android:layout_marginBottom="8dp"
             android:background="@color/line" />
 
+        <!-- hidden extra: one scanning session that reads every barcode format -->
         <LinearLayout
-            android:id="@+id/set_clear"
+            android:id="@+id/set_once"
             style="@style/SettingRow"
             android:baselineAligned="false"
             android:orientation="horizontal">
 
-            <LinearLayout
+            <TextView
+                style="@style/SettingTitle"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    style="@style/SettingTitle"
-                    android:text="@string/clear_history"
-                    android:textColor="@color/danger" />
-    
-                <TextView
-                    android:id="@+id/clear_value"
-                    style="@style/SettingSub" />
-            </LinearLayout>
+                android:id="@+id/once_text"
+                android:text="@string/once"
+                android:textColor="@color/dim" />
         </LinearLayout>
 
         <LinearLayout
@@ -172,19 +225,5 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- hidden all-codes mode -->
-        <TextView
-            android:id="@+id/set_once"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
-            android:background="?android:attr/selectableItemBackground"
-            android:gravity="center"
-            android:paddingTop="14dp"
-            android:paddingBottom="14dp"
-            android:text="@string/once"
-            android:textColor="@color/dim"
-            android:textSize="12sp"
-            android:textStyle="italic" />
     </LinearLayout>
 </ScrollView>

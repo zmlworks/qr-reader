@@ -3,4 +3,6 @@
     <item name="about_link" type="id" />
     <item name="name_input" type="id" />
     <item name="template_input" type="id" />
+    <item name="jump_input" type="id" />
+    <item name="obscured" type="id" />
 </resources>

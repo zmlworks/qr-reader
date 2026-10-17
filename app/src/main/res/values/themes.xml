@@ -71,6 +71,23 @@
         <item name="android:maxLines">1</item>
         <item name="android:ellipsize">end</item>
     </style>
+    <!-- "Unlocked · 52s" in the top bars -->
+    <style name="UnlockPill">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">28dp</item>
+        <item name="android:layout_marginStart">4dp</item>
+        <item name="android:layout_marginEnd">4dp</item>
+        <item name="android:background">@drawable/unlock_pill_bg</item>
+        <item name="android:drawableStart">@drawable/ic_lock_open</item>
+        <item name="android:drawablePadding">4dp</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingEnd">10dp</item>
+        <item name="android:textColor">@color/accent</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+        <item name="android:visibility">gone</item>
+    </style>
     <style name="IconBtn">
         <item name="android:layout_width">48dp</item>
         <item name="android:layout_height">48dp</item>

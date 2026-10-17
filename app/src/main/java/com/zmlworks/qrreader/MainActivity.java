@@ -38,6 +38,7 @@ public final class MainActivity extends BaseActivity {
         tabs = new TextView[]{findViewById(R.id.tab_history), findViewById(R.id.tab_create), findViewById(R.id.tab_settings)};
         for (int i = 0; i < 3; i++) { final int t = i; tabs[i].setOnClickListener(v -> select(t)); }
         findViewById(R.id.btn_scan_top).setOnClickListener(v -> scan());
+        findViewById(R.id.btn_jump).setOnClickListener(v -> historyPage.jumpToDate());
         snack = new Snack(root);
         historyPage = new HistoryPage(this, pages[0]);
         createPage = new CreatePage(this, pages[1]);
@@ -86,6 +87,10 @@ public final class MainActivity extends BaseActivity {
         }
         title.setText(t == TAB_HISTORY ? R.string.history : t == TAB_CREATE ? R.string.create : R.string.settings);
         topBar.setVisibility(t == TAB_CREATE ? View.GONE : View.VISIBLE);
+        // History only: Settings starts with Clear all history, so no "scan" button right above it (mis-taps)
+        for (int id : new int[]{R.id.btn_scan_top, R.id.btn_jump})
+            findViewById(id).setVisibility(t == TAB_HISTORY ? View.VISIBLE : View.GONE);
+        ((UnlockPill) findViewById(R.id.unlock_pill)).setAllowed(t == TAB_HISTORY);
         renderBars();
         if (t == TAB_HISTORY) historyPage.refresh();
         if (t == TAB_SETTINGS) settingsPage.refresh();

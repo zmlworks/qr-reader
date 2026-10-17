@@ -178,9 +178,37 @@ public final class History {
         return new Removal(out);
     }
 
-    public Removal clear() {
-        List<Entry> out = new ArrayList<>(entries);
-        entries.clear();
+    public Removal clear() { return clear(true); }
+
+    /** What "Clear all history" would delete: codes (singles and codes in groups), protected among them, favorites kept. */
+    public static final class ClearPlan {
+        public int codes, prot, keptFavorites;
+    }
+
+    public ClearPlan planClear(boolean includingFavorites) {
+        ClearPlan p = new ClearPlan();
+        for (Entry e : entries) {
+            if (e.kind == GROUP) continue;
+            if (e.fav && !includingFavorites) { p.keptFavorites++; continue; }
+            p.codes++;
+            if (e.prot) p.prot++;
+        }
+        return p;
+    }
+
+    /** Deletes everything, or everything but the favorites (a group keeps just its favorite codes). */
+    public Removal clear(boolean includingFavorites) {
+        List<Entry> out = new ArrayList<>();
+        java.util.Set<Long> keepGroups = new java.util.HashSet<>();
+        if (!includingFavorites) for (Entry e : entries) if (e.kind == CHILD && e.fav) keepGroups.add(e.parent);
+        for (Entry e : entries) {
+            boolean keep = !includingFavorites && (e.kind == GROUP ? keepGroups.contains(e.id) : e.fav);
+            if (!keep) out.add(e);
+        }
+        if (out.isEmpty()) return new Removal(out);
+        java.util.Set<Entry> gone = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        gone.addAll(out);
+        entries.removeIf(gone::contains);
         changed();
         return new Removal(out);
     }

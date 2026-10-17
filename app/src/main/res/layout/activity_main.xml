@@ -14,6 +14,16 @@
             style="@style/TopTitle"
             android:text="@string/history" />
 
+        <com.zmlworks.qrreader.UnlockPill
+            android:id="@+id/unlock_pill"
+            style="@style/UnlockPill" />
+
+        <ImageButton
+            android:id="@+id/btn_jump"
+            style="@style/IconBtn"
+            android:contentDescription="@string/jump_to_date"
+            android:src="@drawable/ic_calendar" />
+
         <ImageButton
             android:id="@+id/btn_scan_top"
             style="@style/IconBtn"

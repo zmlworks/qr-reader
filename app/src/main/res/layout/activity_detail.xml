@@ -19,6 +19,11 @@
             android:paddingStart="4dp"
             android:paddingEnd="4dp" />
 
+        <com.zmlworks.qrreader.UnlockPill
+            android:id="@+id/unlock_pill"
+            style="@style/UnlockPill"
+            android:tag="compact" />
+
         <ImageButton
             android:id="@+id/btn_lock"
             style="@style/IconBtn"

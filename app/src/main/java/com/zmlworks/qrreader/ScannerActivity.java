@@ -94,6 +94,9 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     private volatile float zoom = 1, zoomMin = 1, zoomMax = 1;
     private static float lastZoom = 1;   // kept while the process lives
     private boolean handled;             // single mode: a read is being opened
+    /** camera thread may feed frames to the scan logic: the activity is resumed and no read is being opened */
+    private volatile boolean acceptFrames;
+    private int visit = -1;              // App.visit this scanner last scanned in
     private long groupId;                // multi mode: history group of this session (0 = none yet)
     private final ScanLogic logic = new ScanLogic();
     private boolean asking, denied;
@@ -188,7 +191,10 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         handled = false;
         frozen = false;
         renderMode();
-        logic.touch(SystemClock.uptimeMillis());   // a code still in view after coming back stays suppressed
+        // a new scanning session; a new visit of the app (launch, back from another app) forgets the last read too
+        if (visit != App.get().visit) { visit = App.get().visit; logic.reset(); }
+        else logic.startSession();   // back from the detail page, picker...: only the code read last stays guarded
+        acceptFrames = true;
         applyHandedness();
         renderButtons();
         renderPill();
@@ -205,6 +211,7 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     }
 
     @Override protected void onPause() {
+        acceptFrames = false;
         ui.removeCallbacks(pillLoop);
         if (pendingOpen != null) { ui.removeCallbacks(pendingOpen); pendingOpen = null; }   // the read is saved already
         stopCamera();
@@ -375,6 +382,7 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     private void close() {
         App.get().allCodes = false;   // × ends an all-codes session
         allMode = false;
+        logic.reset();
         long g = groupId;
         int n = logic.collectedCount();
         endMultiSession();
@@ -408,7 +416,8 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
             suppressedShown = null;
             return;
         }
-        String s = logic.suppressed(SystemClock.uptimeMillis());
+        // never while a read is being opened (the freeze) or a picture is read
+        String s = handled || frozen || readingImage ? null : logic.suppressed(SystemClock.uptimeMillis());
         suppressedShown = s;
         if (s == null && SystemClock.uptimeMillis() < hintUntil) {
             pill.setVisibility(View.VISIBLE);
@@ -434,8 +443,10 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     // ---------------- results (UI thread) ----------------
     /** A single-mode read: buzz, save, freeze the preview with the code outlined for {@link #FREEZE_MS}, then open it. */
     private void onSingle(QrEngine.Code c, List<QrEngine.Code> codes) {
+        if (!acceptFrames && !handled) { logic.unread(c.text); return; }   // decoded just as the scanner paused: not a read
         if (handled || readingImage || isFinishing()) return;
         handled = true;
+        acceptFrames = false;   // frames still in flight during the freeze are not reads
         Actions.vibrate(this, 40);
         final History.Entry e = App.get().history().addSingle(c.text, System.currentTimeMillis(), c.format);
         List<String> fresh = new ArrayList<>();
@@ -755,7 +766,15 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
             else for (int y = 0; y < h; y++) { buf.position(y * rs); buf.get(yBuf, y * w, w); }
         } finally { img.close(); }
         long now = SystemClock.uptimeMillis();
+        if (!acceptFrames) return;   // paused, or a read is being opened
         codes = (allMode ? pipeAll : pipe).decode(yBuf, w, h, now);
+        handleFrame(codes, w, h, now);
+    }
+
+    /** One decoded frame (camera thread; tests call it on the UI thread): scan logic, then results posted to the UI. */
+    void handleFrame(List<QrEngine.Code> codes, int w, int h, long now) {
+        if (!acceptFrames) return;
+        logic.frame(now);
         if (codes.isEmpty() && !lastHadShapes) return;
         lastHadShapes = !codes.isEmpty();
         if (multi) {
@@ -841,6 +860,7 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     // for the JVM screenshot test
     void setPreviewForTest(int w, int h, int orientation) { size = new Size(w, h); sensorOrientation = orientation; configureTransform(); }
     void showShapesForTest(List<QrEngine.Code> codes, List<String> fresh) { postShapes(codes, fresh); }
+    boolean pillShownForTest() { return pill.getVisibility() == View.VISIBLE; }
     void collectForTest(String text) { if (logic.collect(text)) onCollected(text, null); }
     void readForTest(QrEngine.Code c) { List<QrEngine.Code> l = new ArrayList<>(); l.add(c); onSingle(c, l); }
     boolean allModeForTest() { return allMode; }

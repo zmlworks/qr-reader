@@ -14,8 +14,9 @@ import android.widget.Toast;
 /**
  * Authentication for protected history items: the framework {@link BiometricPrompt} with the device credential
  * (PIN, pattern, password) as fallback on Android 10+, and the system "confirm your screen lock" screen on 8.0-9.
- * No AndroidX. After a success no new prompt is needed for {@link #WINDOW_MS} while the app stays in the foreground
- * (leaving the app ends the window at once, see {@link App}).
+ * No AndroidX. After a success, no protected action (open, copy, remove protection, clear) asks again for
+ * {@link #WINDOW_MS}, whatever the user does in between (also leaving and coming back). The window is measured on
+ * {@link SystemClock#elapsedRealtime()} so time asleep counts. {@link #lockNow()} ends it early (the "Unlocked" pill).
  */
 final class Auth {
     private Auth() {}
@@ -35,15 +36,34 @@ final class Auth {
         return km != null && km.isDeviceSecure();
     }
 
-    static boolean recentlyOk() { return SystemClock.uptimeMillis() < App.get().authUntil; }
+    static boolean recentlyOk() { return remainingMs() > 0; }
+
+    /** ms left in the window (0 = locked) */
+    static long remainingMs() {
+        long left = App.get().authUntil - SystemClock.elapsedRealtime();
+        return left > WINDOW_MS ? 0 : Math.max(0, left);   // > WINDOW_MS: the clock went backwards (reboot): locked
+    }
+
+    private static final java.util.List<Runnable> listeners = new java.util.ArrayList<>();
+    static void addListener(Runnable r) { listeners.add(r); }
+    static void removeListener(Runnable r) { listeners.remove(r); }
+    private static void changed() { for (Runnable r : new java.util.ArrayList<>(listeners)) r.run(); }
+
+    /** Ends the window now (tap on the "Unlocked" pill). */
+    static void lockNow() {
+        App.get().authUntil = 0;
+        changed();
+    }
 
     private static void success(Runnable ok) {
-        App.get().authUntil = SystemClock.uptimeMillis() + WINDOW_MS;
+        App.get().authUntil = SystemClock.elapsedRealtime() + WINDOW_MS;
+        changed();
         if (ok != null) ok.run();
     }
 
     /**
-     * Runs `ok` after a successful authentication (or at once inside the window if `useWindow`). If the device has
+     * Runs `ok` after a successful authentication (or at once inside the window if `useWindow`; every protected action
+     * passes true since 0.4.0). If the device has
      * no screen lock any more there is nothing to check against: `ok` runs (whoever holds the unlocked phone could
      * remove the lock anyway, and the user is not locked out of their own items).
      */

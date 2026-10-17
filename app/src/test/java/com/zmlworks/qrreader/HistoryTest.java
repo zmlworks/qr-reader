@@ -199,4 +199,32 @@ public class HistoryTest {
         h.setProtected(a.id, false);
         assertFalse(a.prot);
     }
+
+    @Test public void clearKeepsFavoritesOnRequest() {
+        History h = new History();
+        History.Entry a = h.addSingle("a", 1);
+        History.Entry b = h.addSingle("b", 2);
+        h.setFavorite(b.id, true);
+        h.setProtected(a.id, true);
+        History.Entry g = h.newGroup(3);
+        History.Entry c1 = h.addChild(g.id, "c1", 4);
+        h.addChild(g.id, "c2", 5);
+        h.setFavorite(c1.id, true);
+        History.Entry g2 = h.newGroup(6);
+        h.addChild(g2.id, "d", 7);
+        History.ClearPlan p = h.planClear(false);
+        assertEquals(3, p.codes);          // a, c2, d
+        assertEquals(1, p.prot);
+        assertEquals(2, p.keptFavorites);
+        assertEquals(5, h.planClear(true).codes);
+        h.clear(false);
+        assertNull(h.get(a.id));
+        assertNotNull(h.get(b.id));
+        assertNotNull("a group keeps its favorite codes", h.get(g.id));
+        assertEquals(1, h.childCount(g.id));
+        assertNull(h.get(g2.id));
+        assertEquals(0, h.planClear(false).codes);
+        h.clear(true);
+        assertEquals(0, h.size());
+    }
 }

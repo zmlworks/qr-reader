@@ -18,14 +18,48 @@ public class LogicTest {
 
     @Test public void singleReadsOnceUntilOutOfView() {
         ScanLogic l = new ScanLogic();
+        l.startSession();
         assertEquals("A", l.single(List.of(code("A", 50, 50)), 100, 100, 0));
+        assertNull("not for the frame of the read itself", l.suppressed(0));
         assertNull(l.single(List.of(code("A", 50, 50)), 100, 100, 100));          // still in view: ignored
-        assertEquals("A", l.suppressed(100));
-        assertNull(l.single(List.of(code("A", 50, 50)), 100, 100, 1500));
-        l.touch(5000);                                                              // came back from the detail page
-        assertNull(l.single(List.of(code("A", 50, 50)), 100, 100, 5100));
+        assertEquals("A", l.suppressed(100));                                       // ... and shown as already read
+        assertNull(l.suppressed(100 + ScanLogic.PILL_MS + 1));                      // pill ends when it leaves the frames
+        // back from the detail page: a new session; no pill without a frame showing the code
+        l.startSession();
+        assertNull(l.suppressed(5000));
+        assertNull(l.single(List.of(code("A", 50, 50)), 100, 100, 5100));          // still in front: not reopened
+        assertEquals("A", l.suppressed(5100));
         assertNull(l.single(Collections.emptyList(), 100, 100, 5200));
         assertEquals("A", l.single(List.of(code("A", 50, 50)), 100, 100, 5100 + ScanLogic.FORGET_MS + 1));   // gone, then back
+    }
+
+    @Test public void carriedCodeIsForgottenIfNotInViewWhenScanningResumes() {
+        ScanLogic l = new ScanLogic();
+        l.startSession();
+        assertEquals("A", l.single(List.of(code("A", 50, 50)), 100, 100, 0));
+        l.startSession();
+        assertNull(l.single(Collections.emptyList(), 100, 100, 60_000));            // first frame long after the read
+        assertNull(l.suppressed(60_000));
+        assertEquals("A", l.single(List.of(code("A", 50, 50)), 100, 100, 60_000 + ScanLogic.FORGET_MS + 1));
+    }
+
+    @Test public void resetForgetsEverything() {
+        ScanLogic l = new ScanLogic();
+        l.startSession();
+        assertEquals("A", l.single(List.of(code("A", 50, 50)), 100, 100, 0));
+        assertNull(l.single(List.of(code("A", 50, 50)), 100, 100, 10));
+        l.reset();                                                                  // left the app / ×
+        assertNull(l.suppressed(20));
+        assertEquals("A", l.single(List.of(code("A", 50, 50)), 100, 100, 30));     // a new visit reads it again
+    }
+
+    @Test public void codesReadEarlierInTheSessionStaySuppressed() {
+        ScanLogic l = new ScanLogic();
+        l.startSession();
+        assertEquals("A", l.single(List.of(code("A", 50, 50)), 100, 100, 0));
+        assertEquals("B", l.single(List.of(code("B", 50, 50)), 100, 100, 10));
+        assertNull(l.single(List.of(code("A", 50, 50)), 100, 100, 5000));
+        assertEquals("A", l.suppressed(5000));
     }
 
     @Test public void singlePrefersTheCentreAndOtherCodes() {

@@ -183,12 +183,24 @@ public final class DetailActivity extends BaseActivity {
                 .setNegativeButton(R.string.cancel, null).show();
     }
 
+    /** "Lock now" (the pill): an open protected page locks at once */
+    private final Runnable onAuth = () -> {
+        if (e != null && e.prot && unlocked && !Auth.recentlyOk() && !isFinishing()) {
+            unlocked = false;
+            prompted = true;   // no automatic prompt: the Unlock button is there
+            bind();
+        }
+    };
+
+    @Override protected void onStart() { super.onStart(); Auth.addListener(onAuth); onAuth.run(); }   // locked meanwhile?
+    @Override protected void onStop() { Auth.removeListener(onAuth); super.onStop(); }
+
     private void unlock() {
         if (e == null || isFinishing()) return;
         Auth.require(this, true, getString(R.string.auth_open_title), () -> { unlocked = true; bind(); }, null);
     }
 
-    /** ON: no prompt (needs a screen lock); OFF: always asks (the 1-minute window does not apply). */
+    /** ON: no prompt (needs a screen lock); OFF: asks unless inside the 1-minute window. */
     private void toggleProtection() {
         History h = App.get().history();
         if (!e.prot) {
@@ -204,7 +216,7 @@ public final class DetailActivity extends BaseActivity {
             renderLock();
             android.widget.Toast.makeText(this, R.string.protected_on, android.widget.Toast.LENGTH_SHORT).show();
         } else {
-            Auth.require(this, false, getString(R.string.auth_unprotect_title), () -> {
+            Auth.require(this, true, getString(R.string.auth_unprotect_title), () -> {
                 h.setProtected(e.id, false);
                 secure(false);
                 renderLock();

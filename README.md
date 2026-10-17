@@ -18,9 +18,11 @@ launch and whenever you come back to the app. It uses zxing-cpp on the camera's 
 Swipe up or down anywhere to zoom, tap to focus. On the thumb side (mirrored in lefty mode), multi mode and read from image
 (photo picker; every code in the picture is decoded) sit at the top, and flash and × sit at half the screen height.
 Multi mode collects every distinct code in view. After a read the preview freezes for 250 ms with the code outlined.
-History items can be protected with a lock: the list then shows only the date, and opening, copying or unprotecting
-needs your fingerprint, face or screen lock (framework BiometricPrompt, no AndroidX).
-Tapping the QR on the Create page switches the screen brightness to maximum and back. Settings also hide a small surprise.
+You can protect history items with a lock. The list then shows the date and a blurred placeholder line (never the real text).
+Opening, copying, unprotecting or deleting protected codes needs your fingerprint, face or screen lock (framework BiometricPrompt, no AndroidX).
+After that, nothing asks again for 60 s, and an "Unlocked · 52s" pill lets you lock early.
+Tapping the QR on the Create page switches the screen brightness between maximum and normal. History can jump to a date (ddmmyyyy).
+Settings has Clear all history (keeping favorites unless you tick the box) and a one-time scan for other barcode types.
 History shows the full date, custom names, favorites, swipe-to-delete with UNDO and swipe-to-copy. The detail page lets you name
 an item, shows URLs as links (with an optional confirmation before the browser opens) and lists share / copy / web search /
 create QR as rows. Create shows a QR code that updates with every character you type, with the input right under it.
@@ -33,7 +35,7 @@ No INTERNET permission, no analytics. MIT © zmlworks.
 （画面はテスト用にJVM上で描画したもの (Robolectric)。カメラ映像の部分は合成画像です。ほかの画面は [docs/screenshots](docs/screenshots) にあります。）
 
 ## 入手
-[Releases](https://github.com/zmlworks/qr-reader/releases) の `qr-reader-0.3.0.apk` をインストールしてください（Android 8.0 以上）。
+[Releases](https://github.com/zmlworks/qr-reader/releases) の `qr-reader-0.4.0.apk` をインストールしてください（Android 8.0 以上）。
 署名証明書 SHA-256: `2E:F7:FF:51:8A:B0:76:54:47:F4:D2:BD:9C:C4:8C:E6:02:1F:EC:08:FD:47:6F:1F:7D:AB:6F:BB:98:08:68:DE`
 
 ## 使い方
@@ -52,7 +54,9 @@ No INTERNET permission, no analytics. MIT © zmlworks.
 - **タップ**: その場所にピントを合わせます。
 - **通常モード**: 読めたら短く振動して履歴に保存します。読めたコードを枠で囲んだまま画面を 250 ms 止めてから、詳細画面を開きます。
   - 同じコードは、カメラから一度外れる（約 1.5 秒）まで読み直しません。
-  - 戻ったときにまだ写っているコードには「Already read · tap to open」が出ます。
+  - 「Already read · tap to open」は、読み取り中に、今回読んだコード（または直前に読んで詳細から戻ったコード）に
+    もう一度カメラを向けたときだけ出ます。起動直後や画面に戻っただけでは出ません。
+    アプリから離れて戻ると、新しい読み取りとして扱います。
 - **Multi モード**: 読み続け、見つかった違うコードをすべて集めます（ボタンに件数、上に「3 codes」）。
   - 読めたコードは枠で囲み、新しく読めたコードは黄色で示します。
   - × を押すと、まず「Just scanned」に今回のコードの一覧が出ます。
@@ -62,9 +66,13 @@ No INTERNET permission, no analytics. MIT © zmlworks.
 読み取りに戻るには戻るボタンを押します（履歴と設定では右上のアイコンからも戻れます）。
 - **History**: 新しい順で、年月日と時刻を表示します。名前を付けた項目は、内容の代わりに名前を表示します。
   - 上のタブで All / Favorites を切り替えます。
+  - 右上のカレンダーで日付へジャンプ: `17102026` か `17/10/2026`（日・月・年）と入れると、その日の最初の項目へ移ります。
+    その日に項目がなければ、それより前でいちばん近い日へ移ります。
+  - 履歴の件数に上限はありません（古いものが自動で消えることはありません）。
   - 右へスワイプで削除（UNDO で元に戻せます）、左へスワイプでクリップボードにコピー、タップで詳細。
   - QR 以外のコード（隠しモードで読んだもの）は、左の印に「EAN-13」などの形式を表示します。
-  - 保護した項目は、日時と小さな鍵の印だけを表示します（内容・名前・種類は出しません）。
+  - 保護した項目は、鍵の印、ぼかした仮の文字の行、日時を表示します。内容・名前・種類は出しません。
+    ぼかしの下に本物の文字はありません。行の長さも内容とは関係ありません。
 - **詳細**: 全文を表示します。
   - 右上: 🔒（保護のオン・オフ）、✎（名前を付ける。空にすると名前を消します）、☆/★（お気に入り）、🗑（削除）。
     🗑 で消すと履歴に戻って UNDO が出ます。UNDO を押すと元に戻り、その詳細画面に戻ります。
@@ -75,8 +83,9 @@ No INTERNET permission, no analytics. MIT © zmlworks.
   - 保護をオンにするのに認証は要りません。ただし端末に画面ロック（PIN・パターン・パスワード）がないとオンにできず、設定を開くボタンを出します。
   - 保護した項目を開く、左スワイプでコピーする、保護を外すときは、指紋・顔認証か画面ロックで確認します。
     Android 10 以上は BiometricPrompt（画面ロックでの代替あり）、8.0〜9 は画面ロックの確認画面です。
-  - 一度確認すると、アプリを使っている間の 1 分間は開くときとコピーするときに聞き直しません（保護を外すときは毎回聞きます）。
-    アプリから離れると、この 1 分はすぐ終わります。
+  - 一度確認すると、そのあと 60 秒間は、開く・コピー・保護を外す・削除のどれでも聞き直しません。
+    アプリから離れて 60 秒以内に戻った場合も同じです。
+    この間は履歴と詳細の上に「Unlocked · 52s」（詳細では鍵の印と秒数）が出ます。タップするとすぐに鍵がかかります。
   - 保護した項目の詳細画面は、スクリーンショットと最近使ったアプリの画面に映りません（FLAG_SECURE）。
   - 「n codes」のまとまりの中の保護したコードは、プレビュー・Copy all・Share all に含めません。右スワイプの削除と UNDO はそのまま使えます。
   - あとで画面ロックを外した場合、保護した項目は確認なしで開きます（その旨のメッセージが出ます）。
@@ -87,15 +96,17 @@ No INTERNET permission, no analytics. MIT © zmlworks.
   - 誤り訂正 M、必要最小のバージョン、モジュールは整数倍で表示します（にじまない）。
   - ASCII 以外を含む文字列は UTF-8 のバイトモード（ECI 付き）にします。
 - **Settings**（オン・オフは右のチェックボックス）:
+  - いちばん上: Clear all history。右の「incl. favorites」（初期値オフ）で、お気に入りも消すかを選びます。
+    確認画面に消える件数、保護したコードの件数、残るお気に入りの件数が出ます。保護したコードを消すときは認証が要ります。
+    上の右端の「スキャナーへ」ボタンは、押し間違いを防ぐため Settings では出しません（History では出ます）。
   - I'm a lefty（左手モード）、Vibrate on read（読み取り時の振動）
   - Dark mode: 初回は端末の設定に合わせ、その後は自分で選んだ状態を覚えます。
   - Confirm before opening browser（初期値オン）: URL を開くときと Web 検索のときに確認します。
   - Search Engine: 検索 URL（`%s` が検索語に置き換わります）。初期値は `https://www.google.com/search?q=%s`。
-  - 履歴をすべて削除（確認あり）
-  - About & licenses（このリポジトリへのリンクとライセンス表示）
-  - いちばん下の小さな一文をタップすると、その回だけ QR 以外のバーコード（EAN、Code 128、DataMatrix、PDF417、Aztec など、
+  - Scan other barcode types too (one time): その回だけ QR 以外のバーコード（EAN、Code 128、DataMatrix、PDF417、Aztec など、
     zxing-cpp が読めるすべての形式）も読むスキャナーになります。上に「All codes」と出ます（タップか × かアプリから離れると終わります）。
     このモードでは画像からの読み取りもすべての形式を読みます。
+  - About & licenses（このリポジトリへのリンクとライセンス表示）
 
 ## ビルド
 ```
@@ -104,7 +115,7 @@ No INTERNET permission, no analytics. MIT © zmlworks.
 - JDK 17、Android SDK 35、Gradle 8.9、AGP 8.7.3。AndroidX はアプリには入っていません（テストの Robolectric だけ）。
 - リリース署名の鍵はリポジトリの外にあります（環境変数 `ZML_KEYSTORE_PROPS` で指定するプロパティファイル）。鍵がなければ未署名でビルドされます。
 - リリース APK のネイティブライブラリは arm64-v8a / armeabi-v7a だけです。ほかの ABI では Java 版 ZXing で読み取ります（QR のみ）。
-- `app/src/test`: 種類判定、検索 URL、履歴（UNDO・名前・保護・形式を含む）、バーコード形式名、QR 生成→ZXing で読み戻し、画像からの読み取り、スキャン判定、ズーム、画面テストとスクリーンショット。
+- `app/src/test`: 種類判定、検索 URL、履歴（UNDO・名前・保護・形式・お気に入りを残す削除を含む）、バーコード形式名、日付ジャンプ、QR 生成→ZXing で読み戻し、画像からの読み取り、スキャン判定、ズーム、画面テストとスクリーンショット。
 - `art/`: アイコンの加工スクリプト（白い背景と影を除き、透明な角丸四角だけを切り出す）。
 
 ## ライセンス

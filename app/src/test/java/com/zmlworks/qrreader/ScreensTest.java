@@ -62,6 +62,7 @@ public class ScreensTest {
         app.holdForeground = false;
         Auth.testResult = null;
         Auth.testPrompts = 0;
+        Obscured.forceBitmapForTest = true;   // screenshots: see Obscured
         shadowOf(app.getSystemService(android.app.KeyguardManager.class)).setIsDeviceSecure(true);
         shadowOf(app).grantPermissions(Manifest.permission.CAMERA);
         Prefs p = app.prefs();
@@ -666,14 +667,18 @@ public class ScreensTest {
         assertTrue(!d.lockedForTest());
         shot(d, "detail-protected", null);
         h.setFavorite(wifi, true);
-        // history list: only the date and time + a lock, no name / text / type / star
+        // history list: lock badge, a blurred placeholder (never the real text) and the usual date line; no star
         MainActivity m = Robolectric.buildActivity(MainActivity.class).setup().get();
         layout(m);
         SwipeListView list = m.findViewById(R.id.list);
         View row = list.getChildAt(1);
         assertEquals(wifi, list.getAdapter().getItemId(1));
-        assertEquals(Actions.listTime(h.get(wifi).time), rowTitle(list, 1));
-        assertEquals(View.GONE, row.findViewById(R.id.row_sub).getVisibility());
+        checkObscured(row, h.get(wifi), "bitmap");
+        assertEquals(Actions.listTime(h.get(wifi).time), ((TextView) row.findViewById(R.id.row_sub)).getText().toString());
+        View normal = list.getChildAt(0);
+        assertEquals("date line in the same place as a normal row", topIn(normal.findViewById(R.id.row_sub)) - topIn(normal),
+                topIn(row.findViewById(R.id.row_sub)) - topIn(row));
+        assertEquals(((TextView) normal.findViewById(R.id.row_sub)).getTextSize(), ((TextView) row.findViewById(R.id.row_sub)).getTextSize(), 0f);
         assertEquals(View.GONE, row.findViewById(R.id.row_star).getVisibility());
         assertEquals(" ", ((TextView) row.findViewById(R.id.row_badge)).getText().toString());
         shot(m, "history-protected", null);
@@ -689,12 +694,26 @@ public class ScreensTest {
         swipeLeft(list, list.getChildAt(1));
         assertEquals("WIFI:T:WPA;S:Cafe-Guest;P:espresso2026;;", cm.getPrimaryClip().getItemAt(0).getText().toString());
         assertEquals(2, Auth.testPrompts);
-        // the 1-minute window: opening right after needs no new prompt
+        // the 1-minute window: opening right after needs no new prompt; the pill counts down in both top bars
         DetailActivity d2 = detail(wifi);
         assertTrue(!d2.lockedForTest());
         assertEquals(2, Auth.testPrompts);
-        // after the window (or leaving the app) it asks; refused -> locked page, nothing shown
-        App.get().authUntil = 0;
+        TextView dp = d2.findViewById(R.id.unlock_pill), mp = m.findViewById(R.id.unlock_pill);
+        assertEquals(View.VISIBLE, dp.getVisibility());
+        int sec = (int) ((Auth.remainingMs() + 999) / 1000);
+        assertTrue(sec > 50 && sec <= 60);
+        assertEquals(sec + "s", dp.getText().toString());
+        assertEquals("Unlocked · " + sec + "s", mp.getText().toString());
+        ShadowLooper.idleMainLooper(8, java.util.concurrent.TimeUnit.SECONDS);
+        assertEquals((sec - 8) + "s", dp.getText().toString());
+        assertEquals("Unlocked · " + (sec - 8) + "s", mp.getText().toString());
+        shot(m, "history-unlocked-pill", null);
+        shot(d2, "detail-unlocked-pill", null);
+        // after the window it asks; refused -> locked page, nothing shown
+        ShadowLooper.idleMainLooper(53, java.util.concurrent.TimeUnit.SECONDS);
+        assertTrue(!Auth.recentlyOk());
+        assertEquals(View.GONE, dp.getVisibility());
+        assertEquals(View.GONE, mp.getVisibility());
         Auth.testResult = false;
         DetailActivity d3 = detail(wifi);
         assertEquals(3, Auth.testPrompts);
@@ -710,26 +729,92 @@ public class ScreensTest {
         d3.findViewById(R.id.btn_unlock).performClick();
         assertTrue(!d3.lockedForTest());
         assertEquals("Café guest Wi-Fi", ((TextView) d3.findViewById(R.id.name)).getText().toString());
-        // OFF always asks, even inside the window
-        assertTrue(Auth.recentlyOk());
+        int prompts = Auth.testPrompts;
+        // tap on the pill: locked at once, the open page locks too (no automatic prompt)
+        d3.findViewById(R.id.unlock_pill).performClick();
+        assertTrue(!Auth.recentlyOk());
+        assertTrue(d3.lockedForTest());
+        assertEquals(prompts, Auth.testPrompts);
+        assertEquals(View.GONE, d3.findViewById(R.id.unlock_pill).getVisibility());
+        d3.findViewById(R.id.btn_unlock).performClick();
+        assertEquals(prompts + 1, Auth.testPrompts);
+        assertTrue(!d3.lockedForTest());
+        // inside the window even OFF needs no new prompt
         Auth.testResult = false;
         d3.findViewById(R.id.btn_lock).performClick();
-        assertEquals(5, Auth.testPrompts);
-        assertTrue(h.get(wifi).prot);
-        Auth.testResult = true;
-        d3.findViewById(R.id.btn_lock).performClick();
-        assertEquals(6, Auth.testPrompts);
+        assertEquals(prompts + 1, Auth.testPrompts);
         assertTrue(!h.get(wifi).prot);
         assertTrue(!secureFlag(d3));
+        // OFF after the window asks
+        h.setProtected(wifi, true);
+        Auth.lockNow();
+        DetailActivity d4 = detail(wifi);
+        assertTrue(d4.lockedForTest());
+        Auth.testResult = true;
+        d4.findViewById(R.id.btn_unlock).performClick();
+        Auth.lockNow();
+        assertTrue(d4.lockedForTest());
     }
 
-    @Test public void leavingTheAppEndsTheAuthWindow() {
+    static void checkObscured(View row, History.Entry e, String how) {
+        TextView title = row.findViewById(R.id.row_title);
+        assertEquals(how, title.getTag(R.id.obscured));
+        String shown = title.getText().toString();
+        if (how.equals("render-effect")) assertEquals(Obscured.placeholder(e.id), shown);
+        assertTrue("no real text: " + shown, !shown.contains(e.text) && (e.name == null || !shown.contains(e.name)));
+        assertEquals(View.VISIBLE, row.findViewById(R.id.row_sub).getVisibility());
+    }
+
+    @Test public void authWindowSurvivesLeavingTheApp() {
         ActivityController<MainActivity> ac = Robolectric.buildActivity(MainActivity.class).setup();
         Auth.testResult = true;
         Auth.require(ac.get(), true, "t", () -> { }, null);
         assertTrue(Auth.recentlyOk());
         ac.pause().stop();
+        ShadowLooper.idleMainLooper(20, java.util.concurrent.TimeUnit.SECONDS);
+        ac.start();
+        assertTrue("back within 60 s: still unlocked", Auth.recentlyOk());
+        int n = Auth.testPrompts;
+        Auth.require(ac.get(), true, "t", () -> { }, null);
+        assertEquals(n, Auth.testPrompts);
+        ShadowLooper.idleMainLooper(41, java.util.concurrent.TimeUnit.SECONDS);
         assertTrue(!Auth.recentlyOk());
+    }
+
+    /** Android 12+: placeholder glyphs with a RenderEffect blur (not visible in software-drawn screenshots). */
+    @Test public void protectedRowsUseRenderEffectOnAndroid12() throws Exception {
+        Obscured.forceBitmapForTest = false;
+        h.setProtected(wifi, true);
+        MainActivity m = Robolectric.buildActivity(MainActivity.class).setup().get();
+        layout(m);
+        SwipeListView list = m.findViewById(R.id.list);
+        checkObscured(list.getChildAt(1), h.get(wifi), "render-effect");
+        // a recycled row turning normal again loses the blur
+        h.setProtected(wifi, false);
+        m.historyPage.refresh();
+        layout(m);
+        assertEquals(null, list.getChildAt(1).findViewById(R.id.row_title).getTag(R.id.obscured));
+        assertEquals("Café guest Wi-Fi", rowTitle(list, 1));
+    }
+
+    /** Android 11 and older: the blurred line is a pre-blurred bitmap of placeholder glyphs. */
+    @Config(sdk = 30)
+    @Test public void protectedRowsBlurredBelowAndroid12() throws Exception {
+        Obscured.forceBitmapForTest = false;
+        h.setProtected(wifi, true);
+        List<History.Entry> ch = h.children(group);
+        h.setProtected(ch.get(0).id, true);
+        MainActivity m = Robolectric.buildActivity(MainActivity.class).setup().get();
+        layout(m);
+        SwipeListView list = m.findViewById(R.id.list);
+        checkObscured(list.getChildAt(1), h.get(wifi), "bitmap");
+        CharSequence t = ((TextView) list.getChildAt(1).findViewById(R.id.row_title)).getText();
+        assertTrue(t instanceof android.text.Spanned && ((android.text.Spanned) t).getSpans(0, t.length(), Obscured.BlurSpan.class).length == 1);
+        Intent i = new Intent(RuntimeEnvironment.getApplication(), CodesActivity.class).putExtra(CodesActivity.EXTRA_GROUP, group)
+                .putExtra(CodesActivity.EXTRA_JUST_SCANNED, true);
+        CodesActivity c = Robolectric.buildActivity(CodesActivity.class, i).setup().get();
+        layout(c);
+        checkObscured(((SwipeListView) c.findViewById(R.id.list)).getChildAt(0), ch.get(0), "bitmap");
     }
 
     @Test public void protectionNeedsAScreenLock() throws Exception {
@@ -765,13 +850,12 @@ public class ScreensTest {
         CodesActivity c = Robolectric.buildActivity(CodesActivity.class, i).setup().get();
         layout(c);
         SwipeListView list = c.findViewById(R.id.list);
-        assertEquals(Actions.listTime(ch.get(0).time), rowTitle(list, 0));
-        assertEquals(View.GONE, list.getChildAt(0).findViewById(R.id.row_sub).getVisibility());
+        checkObscured(list.getChildAt(0), ch.get(0), "bitmap");
+        shot(c, "just-scanned-protected", null);
         for (int k = 0; k < list.getChildCount(); k++) {
             View r = list.getChildAt(k);
             assertTrue(!((TextView) r.findViewById(R.id.row_title)).getText().toString().contains("INV-2026-10-101"));
         }
-        shot(c, "just-scanned-protected", null);
         // Copy all leaves it out
         c.findViewById(R.id.btn_copy_all).performClick();
         android.content.ClipboardManager cm = c.getSystemService(android.content.ClipboardManager.class);
@@ -858,15 +942,13 @@ public class ScreensTest {
     @Test public void settingsOnceLineStartsAllCodes() throws Exception {
         Intent i = new Intent(RuntimeEnvironment.getApplication(), MainActivity.class).putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_SETTINGS);
         MainActivity m = Robolectric.buildActivity(MainActivity.class, i).setup().get();
-        TextView once = m.findViewById(R.id.set_once);
-        assertEquals("Once in a blue moon, a code comes in stripes.", once.getText().toString());
+        View once = m.findViewById(R.id.set_once);
+        assertEquals("Scan other barcode types too (one time)", ((TextView) m.findViewById(R.id.once_text)).getText().toString());
         layout(m);
-        // the last row of the page
+        // a normal row near the bottom, right above About (where Clear all history was)
         android.view.ViewGroup col = (android.view.ViewGroup) once.getParent();
-        assertEquals(once, col.getChildAt(col.getChildCount() - 1));
-        View page = (View) col.getParent();
-        page.scrollTo(0, 100000);
-        shot(m, "settings-once", null);
+        assertEquals(m.findViewById(R.id.set_about), col.getChildAt(col.indexOfChild(once) + 1));
+        assertTrue(once.isClickable());
         once.performClick();
         Intent next = shadowOf(m).getNextStartedActivity();
         assertEquals(ScannerActivity.class.getName(), next.getComponent().getClassName());
@@ -907,4 +989,188 @@ public class ScreensTest {
         assertEquals(android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE, m.getWindow().getAttributes().screenBrightness, 0f);
         assertTrue(!m.createPage.brightForTest());
     }
+
+    // ---- 0.4.0 ----
+
+    @Test public void settingsClearAllAtTheTopWithFavoritesChoice() throws Exception {
+        Intent i = new Intent(RuntimeEnvironment.getApplication(), MainActivity.class).putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_SETTINGS);
+        MainActivity m = Robolectric.buildActivity(MainActivity.class, i).setup().get();
+        layout(m);
+        // first row of the page; no scan button in the Settings top bar (History keeps it)
+        View clear = m.findViewById(R.id.set_clear);
+        assertTrue(topIn(clear) < topIn(m.findViewById(R.id.set_left)));
+        assertTrue(topIn(clear) - (topIn(m.findViewById(R.id.top_bar)) + m.findViewById(R.id.top_bar).getHeight()) < dp(m, 4));
+        assertEquals(View.GONE, m.findViewById(R.id.btn_scan_top).getVisibility());
+        assertEquals(View.GONE, m.findViewById(R.id.btn_jump).getVisibility());
+        CheckBox fav = m.findViewById(R.id.cb_clear_fav);
+        assertTrue("favorites are kept by default", !fav.isChecked());
+        assertEquals("10 codes", ((TextView) m.findViewById(R.id.clear_value)).getText().toString());
+        h.setProtected(url, true);
+        // default: everything but the favorites (jp)
+        clear.performClick();
+        AlertDialog d = m.settingsPage.lastDialog;
+        assertEquals("9 codes will be deleted. This includes 1 protected code. 1 favorite is kept. This cannot be undone.",
+                shadowOf(d).getMessage().toString());
+        assertEquals("Delete all history except favorites?", shadowOf(d).getTitle().toString());
+        shot(m, "settings-clear-keep-favorites", null, d);
+        // protected codes would go: it asks first; refused -> nothing deleted
+        Auth.testResult = false;
+        d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
+        assertEquals(1, Auth.testPrompts);
+        assertEquals(6, h.topLevel().size());
+        clear.performClick();
+        Auth.testResult = true;
+        m.settingsPage.lastDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
+        assertEquals(1, h.topLevel().size());
+        assertEquals(jp, h.topLevel().get(0).id);
+        // including favorites
+        m.findViewById(R.id.set_clear_fav).performClick();
+        assertTrue(fav.isChecked());
+        clear.performClick();
+        d = m.settingsPage.lastDialog;
+        assertEquals("Delete all history, including favorites?", shadowOf(d).getTitle().toString());
+        assertEquals("1 code will be deleted. This cannot be undone.", shadowOf(d).getMessage().toString());
+        shot(m, "settings-clear-including-favorites", null, d);
+        d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
+        assertEquals(0, h.size());
+        // the History tab still has its scan button
+        m.select(MainActivity.TAB_HISTORY);
+        assertEquals(View.VISIBLE, m.findViewById(R.id.btn_scan_top).getVisibility());
+        assertEquals(View.VISIBLE, m.findViewById(R.id.btn_jump).getVisibility());
+    }
+
+    @Test public void jumpToDate() throws Exception {
+        java.time.ZoneId z = java.time.ZoneId.systemDefault();
+        long day = 86_400_000L;
+        h.clear();
+        java.time.LocalDate base = java.time.LocalDate.of(2026, 10, 17);
+        for (int k = 0; k < 40; k++) {   // one code per day, 40 days back, skipping 1 Oct
+            java.time.LocalDate d = base.minusDays(k);
+            if (d.getDayOfMonth() == 1 && d.getMonthValue() == 10) continue;
+            h.addSingle("code of " + d, d.atTime(12, 0).atZone(z).toInstant().toEpochMilli());
+        }
+        MainActivity m = Robolectric.buildActivity(MainActivity.class).setup().get();
+        layout(m);
+        m.findViewById(R.id.btn_jump).performClick();
+        ShadowLooper.idleMainLooper();
+        AlertDialog d = m.historyPage.jumpDialog;
+        EditText et = d.findViewById(R.id.jump_input);
+        et.setText("31/02/2026");
+        d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        assertTrue(d.isShowing());
+        assertNotNull(et.getError());
+        et.setText("05102026");
+        et.setError(null);
+        shot(m, "history-jump-to-date", null, d);
+        d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
+        layout(m);
+        SwipeListView list = m.findViewById(R.id.list);
+        assertEquals("code of 2026-10-05", h.get(list.getAdapter().getItemId(list.getFirstVisiblePosition())).text);
+        // no code on 1 Oct: the nearest earlier day
+        assertEquals(16, m.historyPage.jumpTo(java.time.LocalDate.of(2026, 10, 1)));
+        assertEquals("code of 2026-09-30", h.topLevel().get(16).text);
+        assertEquals(-1, m.historyPage.jumpTo(java.time.LocalDate.of(2020, 1, 1)));
+        assertEquals(0, m.historyPage.jumpTo(java.time.LocalDate.of(2030, 1, 1)));
+    }
+
+    // -- "Already read" regression: only for codes seen again in a frame of the current scanning session --
+
+    static List<QrEngine.Code> frame(String... texts) {
+        List<QrEngine.Code> l = new ArrayList<>();
+        for (String t : texts) l.add(new QrEngine.Code(t, new float[]{400, 400, 600, 400, 600, 600, 400, 600}));
+        return l;
+    }
+
+    static boolean alreadyRead(ScannerActivity s) {
+        CharSequence t = s.pillTextForTest();
+        return t != null && t.toString().startsWith("Already read");
+    }
+
+    static void scanFrames(ScannerActivity s, long ms, String... texts) {
+        for (long t = 0; t < ms; t += 100) {
+            s.handleFrame(frame(texts), 1000, 1000, android.os.SystemClock.uptimeMillis());
+            ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS);
+        }
+    }
+
+    @Test public void alreadyReadNotAtLaunchOrResume() throws Exception {
+        // launch with a history whose newest item is "https://github.com/zmlworks/qr-reader"
+        ActivityController<ScannerActivity> ac = Robolectric.buildActivity(ScannerActivity.class).setup();
+        ScannerActivity s = ac.get();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        assertTrue(!alreadyRead(s));
+        // a read: no pill during the freeze, even with more frames of it
+        s.handleFrame(frame("A"), 1000, 1000, android.os.SystemClock.uptimeMillis());
+        ShadowLooper.idleMainLooper();
+        scanFrames(s, ScannerActivity.FREEZE_MS - 50, "A");
+        assertTrue("not during the freeze", !alreadyRead(s));
+        ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS);
+        Intent di = shadowOf(s).getNextStartedActivity();
+        assertEquals(DetailActivity.class.getName(), di.getComponent().getClassName());
+        assertEquals(1, countText("A"));
+        // the detail page covers the scanner (still in the app)
+        ActivityController<DetailActivity> dc = Robolectric.buildActivity(DetailActivity.class, di).setup();
+        ac.pause().stop();
+        // back from the detail page: nothing shown until a frame shows the code again
+        dc.pause();
+        ac.restart().start().resume();
+        dc.stop();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        assertTrue("not on return from the detail page", !alreadyRead(s));
+        scanFrames(s, 300, "A");                       // still pointing at it: not reopened, and now the pill
+        assertEquals(null, shadowOf(s).getNextStartedActivity());
+        assertTrue(alreadyRead(s));
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        assertTrue("gone when the code leaves the frames", !alreadyRead(s));
+        // away from it for a while, back at it: a fresh read
+        scanFrames(s, ScanLogic.FORGET_MS + 200);
+        scanFrames(s, 100, "A");
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        assertEquals(DetailActivity.class.getName(), shadowOf(s).getNextStartedActivity().getComponent().getClassName());
+    }
+
+    @Test public void alreadyReadNotAfterLeavingTheApp() throws Exception {
+        ActivityController<ScannerActivity> ac = Robolectric.buildActivity(ScannerActivity.class).setup();
+        ScannerActivity s = ac.get();
+        s.handleFrame(frame("A"), 1000, 1000, android.os.SystemClock.uptimeMillis());
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        shadowOf(s).getNextStartedActivity();
+        ac.pause().stop();                              // to the home screen: a new visit next time
+        ShadowLooper.idleMainLooper(30, java.util.concurrent.TimeUnit.SECONDS);
+        ac.restart().start().resume();                  // "launch" again
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        assertTrue("not at launch", !alreadyRead(s));
+        scanFrames(s, 100, "A");                        // a new visit reads it as new
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        assertTrue(!alreadyRead(s));
+        assertEquals(DetailActivity.class.getName(), shadowOf(s).getNextStartedActivity().getComponent().getClassName());
+    }
+
+    @Test public void alreadyReadNotAfterThePhotoPicker() throws Exception {
+        ActivityController<ScannerActivity> ac = Robolectric.buildActivity(ScannerActivity.class).setup();
+        ScannerActivity s = ac.get();
+        s.findViewById(R.id.btn_image).performClick();
+        org.robolectric.shadows.ShadowActivity.IntentForResult pick = shadowOf(s).getNextStartedActivityForResult();
+        ac.pause().stop();
+        shadowOf(s).receiveResult(pick.intent, Activity.RESULT_CANCELED, null);
+        ac.restart().start().resume();
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        assertTrue(!alreadyRead(s));
+        assertTrue(!App.get().holdForeground);
+        // a picture with one code: its detail opens; back on the scanner no pill without frames
+        s.findViewById(R.id.btn_image).performClick();
+        pick = shadowOf(s).getNextStartedActivityForResult();
+        ac.pause().stop();
+        shadowOf(s).receiveResult(pick.intent, Activity.RESULT_OK, new Intent().setData(photo("photo-pill", new String[]{"From a photo"})));
+        ac.restart().start().resume();
+        waitFor(() -> "From a photo".equals(h.topLevel().get(0).text));
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        assertTrue(!alreadyRead(s));
+    }
+
+    int countText(String t) { int n = 0; for (History.Entry e : h.topLevel()) if (t.equals(e.text)) n++; return n; }
 }

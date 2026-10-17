@@ -14,12 +14,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-/** Settings tab: lefty, vibrate, dark mode, confirm before browser, search URL, clear history, about & licenses. */
+/**
+ * Settings tab: clear history (with or without favorites) at the top, then lefty, vibrate, dark mode, confirm before
+ * browser, search URL, the all-codes row, about & licenses.
+ */
 final class SettingsPage {
     static final String REPO_URL = "https://github.com/zmlworks/qr-reader";
     private final MainActivity a;
     private final Prefs p;
-    private final CheckBox cbLeft, cbVibrate, cbDark, cbConfirm;
+    private final CheckBox cbLeft, cbVibrate, cbDark, cbConfirm, cbClearFav;
+    /** Clear all history also deletes favorites (off at every start: the safe choice) */
+    private boolean clearFavorites;
     private final TextView engineValue, clearValue, aboutValue;
 
     SettingsPage(MainActivity a, View root) {
@@ -29,6 +34,8 @@ final class SettingsPage {
         cbVibrate = root.findViewById(R.id.cb_vibrate);
         cbDark = root.findViewById(R.id.cb_dark);
         cbConfirm = root.findViewById(R.id.cb_confirm);
+        cbClearFav = root.findViewById(R.id.cb_clear_fav);
+        root.findViewById(R.id.set_clear_fav).setOnClickListener(v -> { clearFavorites = !clearFavorites; refresh(); });
         engineValue = root.findViewById(R.id.engine_value);
         clearValue = root.findViewById(R.id.clear_value);
         aboutValue = root.findViewById(R.id.about_value);
@@ -48,7 +55,8 @@ final class SettingsPage {
         cbDark.setChecked(a.isNight());
         cbConfirm.setChecked(p.confirmBrowser());
         engineValue.setText(p.searchTemplate());
-        int n = App.get().history().topLevel().size();
+        cbClearFav.setChecked(clearFavorites);
+        int n = App.get().history().planClear(true).codes;
         clearValue.setText(a.getResources().getQuantityString(R.plurals.clear_history_sub, n, n));
         aboutValue.setText(a.getString(R.string.about_sub, version()));
     }
@@ -91,13 +99,29 @@ final class SettingsPage {
     AlertDialog lastDialog;
 
     private void confirmClear() {
-        if (App.get().history().size() == 0) return;
-        lastDialog = new AlertDialog.Builder(a).setTitle(R.string.clear_history).setMessage(R.string.clear_history_confirm)
-                .setPositiveButton(R.string.clear, (d, w) -> {
-                    App.get().history().clear();
-                    App.get().pendingUndo = null;
-                    refresh();
-                    Toast.makeText(a, R.string.cleared, Toast.LENGTH_SHORT).show();
+        History h = App.get().history();
+        if (h.size() == 0) return;
+        final boolean all = clearFavorites;
+        History.ClearPlan plan = h.planClear(all);
+        if (plan.codes == 0) { Toast.makeText(a, R.string.clear_only_favorites, Toast.LENGTH_SHORT).show(); return; }
+        android.content.res.Resources r = a.getResources();
+        StringBuilder m = new StringBuilder(r.getQuantityString(R.plurals.clear_n_codes, plan.codes, plan.codes));
+        if (plan.prot > 0) m.append(' ').append(r.getQuantityString(R.plurals.clear_n_protected, plan.prot, plan.prot));
+        if (plan.keptFavorites > 0) m.append(' ').append(r.getQuantityString(R.plurals.clear_n_kept, plan.keptFavorites, plan.keptFavorites));
+        m.append(' ').append(a.getString(R.string.cannot_undo));
+        final int prot = plan.prot;
+        lastDialog = new AlertDialog.Builder(a).setTitle(all ? R.string.clear_confirm_all : R.string.clear_confirm_keep_fav)
+                .setMessage(m)
+                .setPositiveButton(R.string.delete, (d, w) -> {
+                    Runnable go = () -> {
+                        App.get().history().clear(all);
+                        App.get().pendingUndo = null;
+                        refresh();
+                        Toast.makeText(a, R.string.cleared, Toast.LENGTH_SHORT).show();
+                    };
+                    // no UNDO here, so protected codes need the same check as opening them
+                    if (prot > 0) Auth.require(a, true, a.getString(R.string.auth_clear_title), go, null);
+                    else go.run();
                 })
                 .setNegativeButton(R.string.cancel, null).show();
     }

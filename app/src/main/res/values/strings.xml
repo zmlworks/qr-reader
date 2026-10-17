@@ -109,16 +109,45 @@
     <string name="custom_url_invalid">Enter an http(s) URL containing %s.</string>
     <string name="clear_history">Clear all history</string>
     <plurals name="clear_history_sub">
-        <item quantity="one">%d item</item>
-        <item quantity="other">%d items</item>
+        <item quantity="one">%d code</item>
+        <item quantity="other">%d codes</item>
     </plurals>
-    <string name="clear_history_confirm">Delete every scanned code, including favorites? This cannot be undone.</string>
+    <string name="incl_favorites">incl. favorites</string>
+    <string name="clear_confirm_all">Delete all history, including favorites?</string>
+    <string name="clear_confirm_keep_fav">Delete all history except favorites?</string>
+    <plurals name="clear_n_codes">
+        <item quantity="one">%d code will be deleted.</item>
+        <item quantity="other">%d codes will be deleted.</item>
+    </plurals>
+    <plurals name="clear_n_protected">
+        <item quantity="one">This includes %d protected code.</item>
+        <item quantity="other">This includes %d protected codes.</item>
+    </plurals>
+    <plurals name="clear_n_kept">
+        <item quantity="one">%d favorite is kept.</item>
+        <item quantity="other">%d favorites are kept.</item>
+    </plurals>
+    <string name="cannot_undo">This cannot be undone.</string>
+    <string name="clear_only_favorites">Nothing to delete: only favorites are left</string>
+    <string name="auth_clear_title">Delete protected codes</string>
     <string name="cleared">History cleared</string>
     <string name="about">About &amp; licenses</string>
     <string name="about_head">%1$s %2$s\nCopyright © 2026 zmlworks · MIT License\nNo internet access, no analytics: scans stay on this device.\nMade by the AI assistant Grok Bot for zmlworks.</string>
     <string name="about_sub">Version %1$s · MIT · open-source notices</string>
-    <string name="once">Once in a blue moon, a code comes in stripes.</string>
+    <string name="once">Scan other barcode types too (one time)</string>
+    <string name="unlocked_pill">Unlocked · %ds</string>
+    <string name="unlocked_pill_short">%ds</string>
+    <plurals name="unlocked_pill_cd">
+        <item quantity="one">Protected items unlocked for %d more second. Tap to lock now</item>
+        <item quantity="other">Protected items unlocked for %d more seconds. Tap to lock now</item>
+    </plurals>
+    <string name="jump_to_date">Jump to date</string>
+    <string name="jump_help">Day, month, year: 17102026 or 17/10/2026</string>
+    <string name="jump_hint">ddmmyyyy</string>
+    <string name="jump">Jump</string>
+    <string name="jump_invalid">Not a date (ddmmyyyy)</string>
+    <string name="jump_none">Nothing on or before %s</string>
+    <string name="jump_earlier">Nothing on %1$s; showing %2$s</string>
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>
-    <string name="clear">Clear</string>
 </resources>

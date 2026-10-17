@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="about_link" type="id" />
+    <item name="name_input" type="id" />
+    <item name="template_input" type="id" />
+</resources>

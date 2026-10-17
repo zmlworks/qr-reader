@@ -72,26 +72,15 @@
                 android:visibility="gone" />
         </LinearLayout>
 
+        <!-- top to bottom: multi, read from image, flash, then (after a wider gap) × at about half the screen height;
+             ScannerActivity keeps × there (top margin) and mirrors the column for left-handed use -->
         <LinearLayout
             android:id="@+id/buttons"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom|end"
-            android:layout_marginBottom="24dp"
+            android:layout_gravity="top|end"
             android:gravity="center_horizontal"
             android:orientation="vertical">
-
-            <ImageButton
-                android:id="@+id/btn_close"
-                style="@style/ScanButton"
-                android:contentDescription="@string/stop_scanning"
-                android:src="@drawable/ic_close" />
-
-            <ImageButton
-                android:id="@+id/btn_flash"
-                style="@style/ScanButton"
-                android:contentDescription="@string/flash_on"
-                android:src="@drawable/ic_flash_off" />
 
             <FrameLayout
                 android:layout_width="wrap_content"
@@ -118,6 +107,25 @@
                     android:textStyle="bold"
                     android:visibility="gone" />
             </FrameLayout>
+
+            <ImageButton
+                android:id="@+id/btn_image"
+                style="@style/ScanButton"
+                android:contentDescription="@string/read_image"
+                android:src="@drawable/ic_image" />
+
+            <ImageButton
+                android:id="@+id/btn_flash"
+                style="@style/ScanButton"
+                android:contentDescription="@string/flash_on"
+                android:src="@drawable/ic_flash_off" />
+
+            <ImageButton
+                android:id="@+id/btn_close"
+                style="@style/ScanButton"
+                android:layout_marginTop="34dp"
+                android:contentDescription="@string/stop_scanning"
+                android:src="@drawable/ic_close" />
         </LinearLayout>
     </FrameLayout>
 </FrameLayout>

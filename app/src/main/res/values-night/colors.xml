@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- dark: slate with a cool blue-violet tint (not pure black), cool greys, crisp 1 dp edges -->
 <resources>
-    <color name="bg">#FF121116</color>
-    <color name="surface">#FF1D1C23</color>
-    <color name="surface2">#FF2A2833</color>
-    <color name="text">#FFEDEBF3</color>
-    <color name="dim">#FFA19DAD</color>
-    <color name="line">#24FFFFFF</color>
-    <color name="accent">#FFB49CFF</color>
-    <color name="on_accent">#FF1B1530</color>
-    <color name="danger">#FFE36A6A</color>
-    <color name="copy">#FF5E95E8</color>
-    <color name="snack">#FF3A3843</color>
+    <color name="bg">#FF1E2028</color>
+    <color name="surface">#FF262A35</color>
+    <color name="surface2">#FF30354A</color>
+    <color name="text">#FFEEF0F7</color>
+    <color name="dim">#FFA5ABBD</color>
+    <color name="line">#FF3A4054</color>
+    <color name="edge">#FF3A4054</color>
+    <color name="accent">#FFA9B8FF</color>
+    <color name="danger">#FFFF7B7B</color>
+    <color name="copy">#FF5E8FE6</color>
+    <color name="snack">#FF363C52</color>
+    <color name="link">#FF8DB4FF</color>
 </resources>

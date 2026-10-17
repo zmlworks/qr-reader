@@ -28,9 +28,19 @@ final class Actions {
         start(a, Intent.createChooser(i, a.getString(R.string.share)));
     }
 
+    /** Opens a web page; asks first when "Confirm before opening browser" is on (the default). */
     static void openUrl(Activity a, String url) {
-        Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE);
-        start(a, i);
+        if (!App.get().prefs().confirmBrowser()) { browse(a, url); return; }
+        lastConfirm = new android.app.AlertDialog.Builder(a).setTitle(R.string.confirm_open_title).setMessage(url)
+                .setPositiveButton(R.string.open, (d, w) -> browse(a, url))
+                .setNegativeButton(R.string.cancel, null).show();
+    }
+
+    /** the last confirmation dialog (tests) */
+    static android.app.AlertDialog lastConfirm;
+
+    private static void browse(Activity a, String url) {
+        start(a, new Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE));
     }
 
     static void view(Activity a, String uri) { start(a, new Intent(Intent.ACTION_VIEW, Uri.parse(uri))); }
@@ -52,8 +62,7 @@ final class Actions {
     }
 
     static void search(Activity a, String text) {
-        Prefs p = App.get().prefs();
-        openUrl(a, SearchUrl.build(p.engine(), p.customTemplate(), text));
+        openUrl(a, SearchUrl.build(App.get().prefs().searchTemplate(), text));
     }
 
     static void start(Activity a, Intent i) {
@@ -71,17 +80,10 @@ final class Actions {
         } catch (RuntimeException ignored) { }
     }
 
-    /** Short relative time for lists: "14:05" today, "Oct 3" this year, else "2025-10-03". */
-    static String shortTime(long t, long now) {
-        java.util.Calendar a = java.util.Calendar.getInstance(), b = java.util.Calendar.getInstance();
-        a.setTimeInMillis(t); b.setTimeInMillis(now);
+    /** Date and time for lists: year, month, day, hours and minutes in the locale's order (e.g. "Oct 17, 2026, 14:05"). */
+    static String listTime(long t) {
         java.util.Locale l = java.util.Locale.getDefault();
-        if (a.get(java.util.Calendar.YEAR) == b.get(java.util.Calendar.YEAR)) {
-            if (a.get(java.util.Calendar.DAY_OF_YEAR) == b.get(java.util.Calendar.DAY_OF_YEAR))
-                return android.text.format.DateFormat.format("HH:mm", a).toString();
-            return android.text.format.DateFormat.format(android.text.format.DateFormat.getBestDateTimePattern(l, "MMMd"), a).toString();
-        }
-        return android.text.format.DateFormat.format("yyyy-MM-dd", a).toString();
+        return new java.text.SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(l, "yyyyMMMdHHmm"), l).format(new java.util.Date(t));
     }
 
     static String longTime(long t) {

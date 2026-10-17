@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- simple rows; on/off settings have a checkbox on the right -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
@@ -12,23 +13,20 @@
         <LinearLayout
             android:id="@+id/set_left"
             style="@style/SettingRow"
+            android:baselineAligned="false"
             android:orientation="horizontal">
 
-            <LinearLayout
+            <TextView
+                style="@style/SettingTitle"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:orientation="vertical">
+                android:text="@string/left_handed" />
 
-                <TextView style="@style/SettingTitle" android:text="@string/left_handed" />
-
-                <TextView style="@style/SettingSub" android:text="@string/left_handed_sub" />
-            </LinearLayout>
-
-            <Switch
-                android:id="@+id/sw_left"
+            <CheckBox
+                android:id="@+id/cb_left"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
                 android:clickable="false"
                 android:focusable="false"
                 android:importantForAccessibility="no" />
@@ -37,6 +35,7 @@
         <LinearLayout
             android:id="@+id/set_vibrate"
             style="@style/SettingRow"
+            android:baselineAligned="false"
             android:orientation="horizontal">
 
             <TextView
@@ -45,31 +44,80 @@
                 android:layout_weight="1"
                 android:text="@string/vibrate" />
 
-            <Switch
-                android:id="@+id/sw_vibrate"
+            <CheckBox
+                android:id="@+id/cb_vibrate"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
                 android:clickable="false"
                 android:focusable="false"
                 android:importantForAccessibility="no" />
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/set_theme"
-            style="@style/SettingRow">
+            android:id="@+id/set_dark"
+            style="@style/SettingRow"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
 
-            <TextView style="@style/SettingTitle" android:text="@string/theme" />
+            <TextView
+                style="@style/SettingTitle"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:text="@string/dark_mode" />
 
-            <TextView android:id="@+id/theme_value" style="@style/SettingSub" />
+            <CheckBox
+                android:id="@+id/cb_dark"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:clickable="false"
+                android:focusable="false"
+                android:importantForAccessibility="no" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/set_confirm"
+            style="@style/SettingRow"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
+
+            <TextView
+                style="@style/SettingTitle"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:text="@string/confirm_browser" />
+
+            <CheckBox
+                android:id="@+id/cb_confirm"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:clickable="false"
+                android:focusable="false"
+                android:importantForAccessibility="no" />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/set_engine"
-            style="@style/SettingRow">
+            style="@style/SettingRow"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
 
-            <TextView style="@style/SettingTitle" android:text="@string/search_engine" />
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
 
-            <TextView android:id="@+id/engine_value" style="@style/SettingSub" />
+                <TextView
+                    style="@style/SettingTitle"
+                    android:text="@string/search_engine" />
+    
+                <TextView
+                    android:id="@+id/engine_value"
+                    style="@style/SettingSub" />
+            </LinearLayout>
         </LinearLayout>
 
         <View
@@ -81,23 +129,47 @@
 
         <LinearLayout
             android:id="@+id/set_clear"
-            style="@style/SettingRow">
+            style="@style/SettingRow"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
 
-            <TextView
-                style="@style/SettingTitle"
-                android:text="@string/clear_history"
-                android:textColor="@color/danger" />
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
 
-            <TextView android:id="@+id/clear_value" style="@style/SettingSub" />
+                <TextView
+                    style="@style/SettingTitle"
+                    android:text="@string/clear_history"
+                    android:textColor="@color/danger" />
+    
+                <TextView
+                    android:id="@+id/clear_value"
+                    style="@style/SettingSub" />
+            </LinearLayout>
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/set_about"
-            style="@style/SettingRow">
+            style="@style/SettingRow"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
 
-            <TextView style="@style/SettingTitle" android:text="@string/about" />
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
 
-            <TextView android:id="@+id/about_value" style="@style/SettingSub" />
+                <TextView
+                    style="@style/SettingTitle"
+                    android:text="@string/about" />
+    
+                <TextView
+                    android:id="@+id/about_value"
+                    style="@style/SettingSub" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 </ScrollView>

@@ -16,6 +16,10 @@
     </plurals>
     <string name="zoom_hint">Swipe up anywhere to zoom in, down to zoom out</string>
     <string name="already_read">Already read: %1$s · tap to open</string>
+    <string name="read_image">Read QR codes from an image</string>
+    <string name="reading_image">Reading the image…</string>
+    <string name="image_no_code">No QR code found in that image</string>
+    <string name="image_unreadable">That image could not be opened</string>
     <string name="camera_denied">Camera access is needed to scan QR codes.</string>
     <string name="grant">Allow camera</string>
     <string name="no_camera">No camera found.</string>
@@ -27,9 +31,8 @@
     <string name="scan">Scan</string>
     <string name="all">All</string>
     <string name="favorites">Favorites</string>
-    <string name="empty_history">No scans yet.\nTap Scan to read a QR code.</string>
+    <string name="empty_history">No scans yet.\nPress back to scan a QR code.</string>
     <string name="empty_favorites">No favorites yet.\nTap ☆ on a code to keep it here.</string>
-    <string name="swipe_hint">Swipe right to delete · left to copy</string>
     <plurals name="n_codes">
         <item quantity="one">%d code</item>
         <item quantity="other">%d codes</item>
@@ -47,7 +50,6 @@
     <string name="code_n_of_m">Code %1$d of %2$d · multi scan</string>
     <!-- detail -->
     <string name="back">Back</string>
-    <string name="open_in_browser">Open in browser</string>
     <string name="call">Call %1$s</string>
     <string name="send_email">Send email</string>
     <string name="send_sms">Send SMS</string>
@@ -57,10 +59,16 @@
     <string name="wifi_fields">Network: %1$s\nSecurity: %2$s\nPassword: %3$s</string>
     <string name="wifi_open">open</string>
     <string name="none">none</string>
-    <string name="copy">Copy</string>
     <string name="share">Share</string>
-    <string name="search">Search</string>
-    <string name="create_qr">Create QR</string>
+    <string name="share_text">Share text</string>
+    <string name="copy_clipboard">Copy to clipboard</string>
+    <string name="search_web">Search the web</string>
+    <string name="create_this_qr">Create this QR code</string>
+    <string name="rename">Name this item</string>
+    <string name="name_hint">Name</string>
+    <string name="name_help">Shown in the history instead of the text. Leave empty to remove the name.</string>
+    <string name="confirm_open_title">Open in browser?</string>
+    <string name="open">Open</string>
     <string name="favorite">Favorite</string>
     <string name="unfavorite">Remove from favorites</string>
     <string name="delete">Delete</string>
@@ -71,23 +79,14 @@
     <string name="create_empty">The QR code appears here as you type.</string>
     <string name="too_long">Too long for one QR code (max. about 2,300 bytes).</string>
     <string name="qr_info" tools:ignore="PluralsCandidate">Version %1$d · %2$d×%2$d · EC M · %3$d bytes</string>
-    <string name="save_image">Save image</string>
-    <string name="share_image">Share image</string>
-    <string name="saved">Saved to Pictures</string>
-    <string name="save_failed">Could not save the image.</string>
-    <string name="clear_text">Clear text</string>
     <!-- settings -->
-    <string name="left_handed">Left-handed mode</string>
-    <string name="left_handed_sub">Scanner buttons on the left, zoom on the right</string>
+    <string name="left_handed">I\'m a lefty</string>
     <string name="vibrate">Vibrate on read</string>
-    <string name="theme">Dark mode</string>
-    <string name="theme_system">System default</string>
-    <string name="theme_light">Light</string>
-    <string name="theme_dark">Dark</string>
-    <string name="search_engine">Search engine</string>
-    <string name="custom_url">Custom search URL</string>
-    <string name="custom_url_hint">https://example.com/search?q=%s</string>
-    <string name="custom_url_help">Use %s where the search text goes.</string>
+    <string name="dark_mode">Dark mode</string>
+    <string name="confirm_browser">Confirm before opening browser</string>
+    <string name="search_engine">Search Engine</string>
+    <string name="custom_url_help">Search URL; %s is replaced by the text. Empty = Google.</string>
+    <string name="reset_google">Google</string>
     <string name="custom_url_invalid">Enter an http(s) URL containing %s.</string>
     <string name="clear_history">Clear all history</string>
     <plurals name="clear_history_sub">
@@ -97,6 +96,7 @@
     <string name="clear_history_confirm">Delete every scanned code, including favorites? This cannot be undone.</string>
     <string name="cleared">History cleared</string>
     <string name="about">About &amp; licenses</string>
+    <string name="about_head">%1$s %2$s\nCopyright © 2026 zmlworks · MIT License\nNo internet access, no analytics: scans stay on this device.\nMade by the AI assistant Grok Bot for zmlworks.</string>
     <string name="about_sub">Version %1$s · MIT · open-source notices</string>
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>

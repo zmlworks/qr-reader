@@ -23,6 +23,8 @@ public final class History {
         public final String text;
         public long time;
         public boolean fav;
+        /** user-given name shown instead of the text (null = none) */
+        public String name;
 
         Entry(long id, long parent, int kind, long time, boolean fav, String text) {
             this.id = id; this.parent = parent; this.kind = kind; this.time = time; this.fav = fav; this.text = text;
@@ -127,6 +129,20 @@ public final class History {
         if (e != null && e.kind != GROUP && e.fav != fav) { e.fav = fav; changed(); }
     }
 
+    /** Names a code (blank or null clears the name). */
+    public void setName(long id, String name) {
+        Entry e = get(id);
+        if (e == null || e.kind == GROUP) return;
+        String n = name == null ? null : name.replace('\n', ' ').replace('\t', ' ').trim();
+        if (n != null && n.isEmpty()) n = null;
+        if (n == null ? e.name == null : n.equals(e.name)) return;
+        e.name = n;
+        changed();
+    }
+
+    /** What a list shows for a code: its name, else its text. */
+    public static String label(Entry e) { return e.name != null ? e.name : e.text; }
+
     /** Removes an entry (a group with all its codes; the last code of a group also removes the group). */
     public Removal remove(long id) {
         Entry e = get(id);
@@ -159,13 +175,15 @@ public final class History {
     }
 
     // ---------------- persistence: one line per entry, tab separated, text escaped ----------------
+    // QRH2: id parent kind time fav name text (QRH1 of 0.1.0 had no name column and is still read)
     public String serialize() {
-        StringBuilder b = new StringBuilder("QRH1\t").append(nextId).append('\n');
+        StringBuilder b = new StringBuilder("QRH2\t").append(nextId).append('\n');
         List<Entry> sorted = new ArrayList<>(entries);
         sorted.sort(Comparator.comparingLong(x -> x.id));
         for (Entry e : sorted) {
             b.append(e.id).append('\t').append(e.parent).append('\t').append(e.kind).append('\t').append(e.time)
-                    .append('\t').append(e.fav ? 1 : 0).append('\t').append(escape(e.text)).append('\n');
+                    .append('\t').append(e.fav ? 1 : 0).append('\t').append(e.name == null ? "" : escape(e.name))
+                    .append('\t').append(escape(e.text)).append('\n');
         }
         return b.toString();
     }
@@ -174,15 +192,18 @@ public final class History {
         History h = new History();
         if (s == null || s.isEmpty()) return h;
         String[] lines = s.split("\n", -1);
-        if (!lines[0].startsWith("QRH1\t")) return h;
+        boolean v2 = lines[0].startsWith("QRH2\t");
+        if (!v2 && !lines[0].startsWith("QRH1\t")) return h;
+        int cols = v2 ? 7 : 6;
         try { h.nextId = Long.parseLong(lines[0].substring(5).trim()); } catch (NumberFormatException ignored) { }
         long maxId = 0;
         for (int i = 1; i < lines.length; i++) {
-            String[] f = lines[i].split("\t", 6);
-            if (f.length < 6) continue;
+            String[] f = lines[i].split("\t", cols);
+            if (f.length < cols) continue;
             try {
                 Entry e = new Entry(Long.parseLong(f[0]), Long.parseLong(f[1]), Integer.parseInt(f[2]), Long.parseLong(f[3]),
-                        "1".equals(f[4]), unescape(f[5]));
+                        "1".equals(f[4]), unescape(f[cols - 1]));
+                if (v2 && !f[5].isEmpty()) e.name = unescape(f[5]);
                 h.entries.add(e);
                 maxId = Math.max(maxId, e.id);
             } catch (NumberFormatException ignored) { }

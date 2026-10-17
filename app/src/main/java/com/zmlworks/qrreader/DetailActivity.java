@@ -1,29 +1,41 @@
 package com.zmlworks.qrreader;
 
+import android.app.AlertDialog;
 import android.content.Intent;
+import android.graphics.Paint;
 import android.net.wifi.WifiNetworkSuggestion;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.text.InputType;
+import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/** One code: full text, a prominent action for URLs (and tel/mailto/sms/geo/Wi-Fi), copy/share/search/create QR. */
+/**
+ * One code: optional name (pen), the full text (a URL is a link: tap = browser, after a confirmation if that setting is
+ * on), then one action per row: type-specific ones (call, mail, SMS, map, Wi-Fi) and share / copy / web search /
+ * create QR. Favourite and delete (with UNDO in the history) are in the top bar.
+ */
 public final class DetailActivity extends BaseActivity {
     static final String EXTRA_ID = "id";
     private History.Entry e;
     private ImageButton fav;
+    private LinearLayout actions;
+    private final List<View> extraRows = new ArrayList<>();
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         setContentView(R.layout.activity_detail);
         padForInsets(findViewById(R.id.root));
         fav = findViewById(R.id.btn_fav);
+        actions = findViewById(R.id.actions);
         findViewById(R.id.btn_back).setOnClickListener(v -> finish());
         bind();
     }
@@ -38,17 +50,20 @@ public final class DetailActivity extends BaseActivity {
         History h = App.get().history();
         e = h.get(getIntent().getLongExtra(EXTRA_ID, 0));
         TextView title = findViewById(R.id.title), meta = findViewById(R.id.meta), text = findViewById(R.id.text), fields = findViewById(R.id.fields);
-        Button primary = findViewById(R.id.primary), secondary = findViewById(R.id.secondary);
+        for (View v : extraRows) actions.removeView(v);
+        extraRows.clear();
         if (e == null || e.kind == History.GROUP) {
             title.setText("");
             text.setText(R.string.not_found);
-            for (int id : new int[]{R.id.btn_fav, R.id.btn_delete, R.id.act_copy, R.id.act_share, R.id.act_search, R.id.act_qr})
+            findViewById(R.id.name).setVisibility(View.GONE);
+            for (int id : new int[]{R.id.btn_name, R.id.btn_fav, R.id.btn_delete, R.id.actions})
                 findViewById(id).setVisibility(View.GONE);
             return;
         }
         final String s = e.text;
         final ContentType t = ContentType.parse(s);
         title.setText(t.label());
+        renderName();
         String m = Actions.longTime(e.time);
         if (e.kind == History.CHILD) {
             List<History.Entry> ch = h.children(e.parent);
@@ -58,37 +73,44 @@ public final class DetailActivity extends BaseActivity {
         }
         meta.setText(m);
         text.setText(s);
+        boolean link = t.kind == ContentType.Kind.URL;
+        text.setTextColor(getColor(link ? R.color.link : R.color.text));
+        text.setPaintFlags(link ? text.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG : text.getPaintFlags() & ~Paint.UNDERLINE_TEXT_FLAG);
+        text.setTextIsSelectable(!link);
+        if (link) {
+            text.setOnClickListener(v -> Actions.openUrl(this, t.uri));
+            text.setBackgroundResource(R.drawable.card_bg_clickable);
+        } else {
+            text.setOnClickListener(null);
+            text.setBackgroundResource(R.drawable.card_bg);
+        }
         fields.setVisibility(View.GONE);
-        primary.setVisibility(View.GONE);
-        secondary.setVisibility(View.GONE);
         switch (t.kind) {
-            case URL:
-                show(primary, getString(R.string.open_in_browser), v -> Actions.openUrl(this, t.uri));
-                break;
             case TEL:
-                show(primary, getString(R.string.call, t.number), v -> Actions.dial(this, t.number));
+                row(R.drawable.ic_call, getString(R.string.call, t.number), v -> Actions.dial(this, t.number));
                 break;
             case EMAIL:
-                show(primary, getString(R.string.send_email), v -> Actions.email(this, t));
+                row(R.drawable.ic_mail, getString(R.string.send_email), v -> Actions.email(this, t));
                 break;
             case SMS:
-                show(primary, getString(R.string.send_sms), v -> Actions.sms(this, t.number, t.body));
+                row(R.drawable.ic_mail, getString(R.string.send_sms), v -> Actions.sms(this, t.number, t.body));
                 break;
             case GEO:
-                show(primary, getString(R.string.open_map), v -> Actions.view(this, t.uri));
+                row(R.drawable.ic_open, getString(R.string.open_map), v -> Actions.view(this, t.uri));
                 break;
             case WIFI:
                 fields.setVisibility(View.VISIBLE);
                 fields.setText(getString(R.string.wifi_fields, t.ssid, t.security == null ? getString(R.string.wifi_open) : t.security,
                         t.password == null ? getString(R.string.none) : t.password));
-                show(primary, getString(R.string.wifi_connect), v -> connectWifi(t));
-                if (t.password != null) show(secondary, getString(R.string.copy_password), v -> Actions.copy(this, t.password));
+                row(R.drawable.ic_wifi, getString(R.string.wifi_connect), v -> connectWifi(t));
+                if (t.password != null) row(R.drawable.ic_copy, getString(R.string.copy_password), v -> Actions.copy(this, t.password));
                 break;
             default:
                 break;
         }
         renderFav();
         fav.setOnClickListener(v -> { h.setFavorite(e.id, !e.fav); renderFav(); });
+        findViewById(R.id.btn_name).setOnClickListener(v -> editName());
         findViewById(R.id.btn_delete).setOnClickListener(v -> delete());
         findViewById(R.id.act_copy).setOnClickListener(v -> Actions.copy(this, s));
         findViewById(R.id.act_share).setOnClickListener(v -> Actions.share(this, s));
@@ -100,10 +122,40 @@ public final class DetailActivity extends BaseActivity {
         });
     }
 
-    private static void show(Button b, String label, View.OnClickListener l) {
-        b.setVisibility(View.VISIBLE);
-        b.setText(label);
-        b.setOnClickListener(l);
+    /** A type-specific action row, above the standard ones (in the order added). */
+    private void row(int icon, String label, View.OnClickListener l) {
+        TextView r = (TextView) LayoutInflater.from(this).inflate(R.layout.action_row, actions, false);
+        r.setText(label);
+        r.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0);
+        r.setOnClickListener(l);
+        actions.addView(r, extraRows.size());
+        extraRows.add(r);
+    }
+
+    private void renderName() {
+        TextView n = findViewById(R.id.name);
+        n.setVisibility(e.name == null ? View.GONE : View.VISIBLE);
+        n.setText(e.name);
+    }
+
+    /** the last name dialog (tests) */
+    AlertDialog nameDialog;
+
+    private void editName() {
+        final EditText et = new EditText(this);
+        et.setId(R.id.name_input);
+        et.setSingleLine(true);
+        et.setHint(R.string.name_hint);
+        et.setText(e.name == null ? "" : e.name);
+        et.setSelection(et.getText().length());
+        et.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        LinearLayout box = new LinearLayout(this);
+        int pad = (int) (20 * getResources().getDisplayMetrics().density);
+        box.setPadding(pad, pad / 2, pad, 0);
+        box.addView(et, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        nameDialog = new AlertDialog.Builder(this).setTitle(R.string.rename).setMessage(R.string.name_help).setView(box)
+                .setPositiveButton(R.string.ok, (d, w) -> { App.get().history().setName(e.id, et.getText().toString()); renderName(); })
+                .setNegativeButton(R.string.cancel, null).show();
     }
 
     private void renderFav() {

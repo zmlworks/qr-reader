@@ -29,15 +29,18 @@ final class CppEngine implements QrEngine {
 
     private CppEngine(BarcodeReader r) { reader = r; }
 
-    static CppEngine create() {
+    static CppEngine create() { return create(false); }
+
+    /** @param image a still picture (gallery): also try rotated, inverted and downscaled */
+    static CppEngine create(boolean image) {
         try {
             BarcodeReader.Options o = new BarcodeReader.Options();
             Set<BarcodeReader.Format> f = EnumSet.of(BarcodeReader.Format.QR_CODE);
             o.setFormats(f);
             o.setTryHarder(true);
-            o.setTryRotate(false);
-            o.setTryInvert(false);
-            o.setTryDownscale(false);
+            o.setTryRotate(image);
+            o.setTryInvert(image);
+            o.setTryDownscale(image);
             o.setMaxNumberOfSymbols(255);
             o.setBinarizer(BarcodeReader.Binarizer.LOCAL_AVERAGE);
             return new CppEngine(new BarcodeReader(o));

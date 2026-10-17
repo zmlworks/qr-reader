@@ -127,4 +127,36 @@ public class HistoryTest {
         assertEquals(0, History.parse("garbage").size());
         assertEquals(0, History.parse(null).size());
     }
+
+    @Test public void names() {
+        History h = new History();
+        History.Entry a = h.addSingle("https://example.com/very/long/path", 1);
+        assertEquals("https://example.com/very/long/path", History.label(a));
+        h.setName(a.id, "  Wi-Fi\tsticker\n ");
+        assertEquals("Wi-Fi sticker", a.name);
+        assertEquals("Wi-Fi sticker", History.label(a));
+        History p = History.parse(h.serialize());
+        assertEquals("Wi-Fi sticker", p.get(a.id).name);
+        assertEquals(h.serialize(), p.serialize());
+        h.setName(a.id, "   ");   // empty clears it
+        assertEquals(null, a.name);
+        assertEquals(a.text, History.label(a));
+        History.Entry g = h.newGroup(2);
+        h.setName(g.id, "group");   // groups have no names
+        assertEquals(null, g.name);
+        // a named code survives delete + UNDO
+        h.setName(a.id, "kept");
+        h.undo(h.remove(a.id));
+        assertEquals("kept", h.get(a.id).name);
+    }
+
+    @Test public void readsVersion010Files() {
+        History p = History.parse("QRH1\t4\n1\t0\t0\t100\t1\tline\\nbreak\n2\t0\t1\t200\t0\t\n3\t2\t2\t201\t0\tchild\n");
+        assertEquals(3, p.size());
+        assertEquals("line\nbreak", p.get(1).text);
+        assertTrue(p.get(1).fav);
+        assertEquals(null, p.get(1).name);
+        assertEquals("child", p.children(2).get(0).text);
+        assertTrue(p.serialize().startsWith("QRH2\t4\n"));
+    }
 }

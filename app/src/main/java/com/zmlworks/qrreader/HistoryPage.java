@@ -11,11 +11,11 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.List;
 
-/** History tab: All / Favorites, newest first. Swipe right = delete (UNDO), swipe left = copy, tap = detail. */
+/** History tab: All / Favorites, newest first; a named code shows its name. Swipe right = delete (UNDO), swipe left = copy, tap = detail. */
 final class HistoryPage {
     private final MainActivity a;
     private final SwipeListView list;
-    private final TextView empty, segAll, segFav, hint;
+    private final TextView empty, segAll, segFav;
     private boolean favOnly;
     private List<History.Entry> items = new ArrayList<>();
     private final Adapter adapter = new Adapter();
@@ -26,7 +26,6 @@ final class HistoryPage {
         empty = root.findViewById(R.id.empty);
         segAll = root.findViewById(R.id.seg_all);
         segFav = root.findViewById(R.id.seg_fav);
-        hint = root.findViewById(R.id.swipe_hint);
         list.setAdapter(adapter);
         segAll.setOnClickListener(v -> { favOnly = false; refresh(); });
         segFav.setOnClickListener(v -> { favOnly = true; refresh(); });
@@ -46,7 +45,6 @@ final class HistoryPage {
         boolean none = items.isEmpty();
         empty.setVisibility(none ? View.VISIBLE : View.GONE);
         empty.setText(favOnly ? R.string.empty_favorites : R.string.empty_history);
-        hint.setVisibility(none ? View.INVISIBLE : View.VISIBLE);
     }
 
     private void open(History.Entry e) {
@@ -82,18 +80,17 @@ final class HistoryPage {
             History h = App.get().history();
             TextView badge = v.findViewById(R.id.row_badge), title = v.findViewById(R.id.row_title), sub = v.findViewById(R.id.row_sub);
             ImageView star = v.findViewById(R.id.row_star);
-            long now = System.currentTimeMillis();
             if (e.kind == History.GROUP) {
                 int n = h.childCount(e.id);
                 List<History.Entry> ch = h.children(e.id);
                 badge.setText(a.getString(R.string.group_badge, n));
                 title.setText(a.getResources().getQuantityString(R.plurals.n_codes, n, n));
-                String time = Actions.shortTime(e.time, now);
+                String time = Actions.listTime(e.time);
                 sub.setText(ch.isEmpty() ? time : a.getString(R.string.sub_with_preview, time, preview(ch.get(0).text)));
             } else {
                 badge.setText(ContentType.parse(e.text).label());
-                title.setText(preview(e.text));
-                String s = Actions.shortTime(e.time, now);
+                title.setText(preview(History.label(e)));
+                String s = Actions.listTime(e.time);
                 if (e.kind == History.CHILD) s = a.getString(R.string.sub_with_preview, s, a.getString(R.string.multi_scan));
                 sub.setText(s);
             }

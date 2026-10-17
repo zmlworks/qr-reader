@@ -1,11 +1,12 @@
 package com.zmlworks.qrreader;
 
 import android.app.AlertDialog;
+import android.graphics.Paint;
 import android.view.View;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -13,37 +14,39 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-/** Settings tab: left-handed, vibrate, theme, search engine, clear history, about & licenses. */
+/** Settings tab: lefty, vibrate, dark mode, confirm before browser, search URL, clear history, about & licenses. */
 final class SettingsPage {
+    static final String REPO_URL = "https://github.com/zmlworks/qr-reader";
     private final MainActivity a;
     private final Prefs p;
-    private final Switch swLeft, swVibrate;
-    private final TextView themeValue, engineValue, clearValue, aboutValue;
+    private final CheckBox cbLeft, cbVibrate, cbDark, cbConfirm;
+    private final TextView engineValue, clearValue, aboutValue;
 
     SettingsPage(MainActivity a, View root) {
         this.a = a;
         p = App.get().prefs();
-        swLeft = root.findViewById(R.id.sw_left);
-        swVibrate = root.findViewById(R.id.sw_vibrate);
-        themeValue = root.findViewById(R.id.theme_value);
+        cbLeft = root.findViewById(R.id.cb_left);
+        cbVibrate = root.findViewById(R.id.cb_vibrate);
+        cbDark = root.findViewById(R.id.cb_dark);
+        cbConfirm = root.findViewById(R.id.cb_confirm);
         engineValue = root.findViewById(R.id.engine_value);
         clearValue = root.findViewById(R.id.clear_value);
         aboutValue = root.findViewById(R.id.about_value);
         root.findViewById(R.id.set_left).setOnClickListener(v -> { p.setLeftHanded(!p.leftHanded()); refresh(); });
         root.findViewById(R.id.set_vibrate).setOnClickListener(v -> { p.setVibrate(!p.vibrate()); refresh(); });
-        root.findViewById(R.id.set_theme).setOnClickListener(v -> chooseTheme());
-        root.findViewById(R.id.set_engine).setOnClickListener(v -> chooseEngine());
+        root.findViewById(R.id.set_dark).setOnClickListener(v -> { p.setDark(!a.isNight()); a.recreate(); });
+        root.findViewById(R.id.set_confirm).setOnClickListener(v -> { p.setConfirmBrowser(!p.confirmBrowser()); refresh(); });
+        root.findViewById(R.id.set_engine).setOnClickListener(v -> editTemplate());
         root.findViewById(R.id.set_clear).setOnClickListener(v -> confirmClear());
         root.findViewById(R.id.set_about).setOnClickListener(v -> about());
     }
 
     void refresh() {
-        swLeft.setChecked(p.leftHanded());
-        swVibrate.setChecked(p.vibrate());
-        int t = p.theme();
-        themeValue.setText(t == Prefs.THEME_LIGHT ? R.string.theme_light : t == Prefs.THEME_DARK ? R.string.theme_dark : R.string.theme_system);
-        String e = p.engine();
-        engineValue.setText(SearchUrl.CUSTOM.equals(e) ? a.getString(R.string.custom_url) + " · " + p.customTemplate() : SearchUrl.name(e));
+        cbLeft.setChecked(p.leftHanded());
+        cbVibrate.setChecked(p.vibrate());
+        cbDark.setChecked(a.isNight());
+        cbConfirm.setChecked(p.confirmBrowser());
+        engineValue.setText(p.searchTemplate());
         int n = App.get().history().topLevel().size();
         clearValue.setText(a.getResources().getQuantityString(R.plurals.clear_history_sub, n, n));
         aboutValue.setText(a.getString(R.string.about_sub, version()));
@@ -53,50 +56,42 @@ final class SettingsPage {
         try { return a.getPackageManager().getPackageInfo(a.getPackageName(), 0).versionName; } catch (Exception e) { return "?"; }
     }
 
-    private void chooseTheme() {
-        String[] names = {a.getString(R.string.theme_system), a.getString(R.string.theme_light), a.getString(R.string.theme_dark)};
-        new AlertDialog.Builder(a).setTitle(R.string.theme).setSingleChoiceItems(names, p.theme(), (d, which) -> {
-            d.dismiss();
-            if (which != p.theme()) { p.setTheme(which); a.recreate(); }
-        }).setNegativeButton(R.string.cancel, null).show();
-    }
+    private int dp(int v) { return (int) (v * a.getResources().getDisplayMetrics().density); }
 
-    private void chooseEngine() {
-        int cur = 0;
-        for (int i = 0; i < SearchUrl.KEYS.length; i++) if (SearchUrl.KEYS[i].equals(p.engine())) cur = i;
-        new AlertDialog.Builder(a).setTitle(R.string.search_engine).setSingleChoiceItems(SearchUrl.NAMES, cur, (d, which) -> {
-            d.dismiss();
-            if (SearchUrl.CUSTOM.equals(SearchUrl.KEYS[which])) customTemplate();
-            else { p.setEngine(SearchUrl.KEYS[which]); refresh(); }
-        }).setNegativeButton(R.string.cancel, null).show();
-    }
-
-    private void customTemplate() {
+    /** URL template editor: any http(s) URL with %s; empty = back to Google. */
+    void editTemplate() {
         final EditText et = new EditText(a);
+        et.setId(R.id.template_input);
         et.setSingleLine(true);
-        et.setHint(R.string.custom_url_hint);
-        et.setText(p.customTemplate());
+        et.setHint(SearchUrl.DEFAULT_TEMPLATE);
+        et.setText(p.searchTemplate());
+        et.setSelection(et.getText().length());
         et.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
         LinearLayout box = new LinearLayout(a);
-        int pad = (int) (20 * a.getResources().getDisplayMetrics().density);
-        box.setPadding(pad, pad / 2, pad, 0);
+        box.setPadding(dp(20), dp(10), dp(20), 0);
         box.addView(et, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-        AlertDialog d = new AlertDialog.Builder(a).setTitle(R.string.custom_url).setMessage(R.string.custom_url_help).setView(box)
-                .setPositiveButton(R.string.ok, null).setNegativeButton(R.string.cancel, null).create();
+        AlertDialog d = new AlertDialog.Builder(a).setTitle(R.string.search_engine).setMessage(R.string.custom_url_help).setView(box)
+                .setPositiveButton(R.string.ok, null).setNegativeButton(R.string.cancel, null)
+                .setNeutralButton(R.string.reset_google, (x, w) -> { p.setSearchTemplate(SearchUrl.DEFAULT_TEMPLATE); refresh(); })
+                .create();
         d.setOnShowListener(x -> d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String t = et.getText().toString().trim();
+            if (t.isEmpty()) t = SearchUrl.DEFAULT_TEMPLATE;
             if (!SearchUrl.validTemplate(t)) { et.setError(a.getString(R.string.custom_url_invalid)); return; }
-            p.setCustomTemplate(t);
-            p.setEngine(SearchUrl.CUSTOM);
+            p.setSearchTemplate(t);
             refresh();
             d.dismiss();
         }));
         d.show();
+        lastDialog = d;
     }
+
+    /** the last dialog shown (tests) */
+    AlertDialog lastDialog;
 
     private void confirmClear() {
         if (App.get().history().size() == 0) return;
-        new AlertDialog.Builder(a).setTitle(R.string.clear_history).setMessage(R.string.clear_history_confirm)
+        lastDialog = new AlertDialog.Builder(a).setTitle(R.string.clear_history).setMessage(R.string.clear_history_confirm)
                 .setPositiveButton(R.string.clear, (d, w) -> {
                     App.get().history().clear();
                     App.get().pendingUndo = null;
@@ -106,7 +101,7 @@ final class SettingsPage {
                 .setNegativeButton(R.string.cancel, null).show();
     }
 
-    private void about() {
+    void about() {
         String notices;
         try (InputStream in = a.getAssets().open("THIRD_PARTY_NOTICES.txt")) {
             java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
@@ -114,18 +109,31 @@ final class SettingsPage {
             for (int n; (n = in.read(buf)) > 0; ) bo.write(buf, 0, n);
             notices = new String(bo.toByteArray(), StandardCharsets.UTF_8);
         } catch (IOException e) { notices = ""; }
-        String text = a.getString(R.string.app_label) + " " + version() + "\n"
-                + "Copyright (c) 2026 zmlworks · MIT License\n"
-                + "No internet access, no analytics: scans stay on this device.\n"
-                + "Made by the AI assistant Grok Bot for zmlworks.\n\n" + notices;
+        LinearLayout col = new LinearLayout(a);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setPadding(dp(20), dp(8), dp(20), dp(8));
+        TextView head = new TextView(a);
+        head.setText(a.getString(R.string.about_head, a.getString(R.string.app_label), version()));
+        head.setTextSize(14);
+        head.setTextColor(a.getColor(R.color.text));
+        col.addView(head);
+        TextView link = new TextView(a);
+        link.setId(R.id.about_link);
+        link.setText(REPO_URL);
+        link.setTextSize(15);
+        link.setTextColor(a.getColor(R.color.link));
+        link.setPaintFlags(link.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG);
+        link.setPadding(0, dp(12), 0, dp(12));
+        link.setOnClickListener(v -> Actions.openUrl(a, REPO_URL));
+        col.addView(link);
         TextView tv = new TextView(a);
-        int pad = (int) (20 * a.getResources().getDisplayMetrics().density);
-        tv.setPadding(pad, pad / 2, pad, pad / 2);
-        tv.setText(text);
+        tv.setText(notices);
         tv.setTextSize(12);
+        tv.setTextColor(a.getColor(R.color.dim));
         tv.setTextIsSelectable(true);
+        col.addView(tv);
         ScrollView sv = new ScrollView(a);
-        sv.addView(tv);
-        new AlertDialog.Builder(a).setTitle(R.string.about).setView(sv).setPositiveButton(R.string.ok, null).show();
+        sv.addView(col);
+        lastDialog = new AlertDialog.Builder(a).setTitle(R.string.about).setView(sv).setPositiveButton(R.string.ok, null).show();
     }
 }

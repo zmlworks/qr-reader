@@ -73,7 +73,7 @@ public final class CodesActivity extends BaseActivity {
             SwipeListView.reset(v);
             History.Entry e = items.get(pos);
             ((TextView) v.findViewById(R.id.row_badge)).setText(ContentType.parse(e.text).label());
-            ((TextView) v.findViewById(R.id.row_title)).setText(HistoryPage.preview(e.text));
+            ((TextView) v.findViewById(R.id.row_title)).setText(HistoryPage.preview(History.label(e)));
             ((TextView) v.findViewById(R.id.row_sub)).setText(getString(R.string.row_number, pos + 1));
             v.findViewById(R.id.row_star).setVisibility(e.fav ? View.VISIBLE : View.GONE);
             return v;

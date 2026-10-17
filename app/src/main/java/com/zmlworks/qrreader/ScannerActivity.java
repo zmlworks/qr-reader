@@ -49,15 +49,16 @@ import java.util.List;
 /**
  * Scanner: Camera2 preview (centre-cropped TextureView) + zxing-cpp on every frame's Y plane.
  * Opens straight into scanning on launch and whenever the activity resumes. Vertical swipe anywhere = zoom,
- * tap = focus there. Right column (left when left-handed): ×, flash, multi.
+ * tap = focus there. Right column (left when left-handed), top to bottom: multi, read from image, flash, × (at half
+ * the screen height). "Read from image" decodes every QR code in a picked picture.
  */
 public final class ScannerActivity extends BaseActivity implements TextureView.SurfaceTextureListener {
-    private static final int REQ_CAM = 1;
+    private static final int REQ_CAM = 1, REQ_IMAGE = 2;
 
     private TextureView preview;
     private OverlayView overlay;
     private ZoomBarView zoomBar;
-    private ImageButton btnClose, btnFlash, btnMulti;
+    private ImageButton btnClose, btnFlash, btnMulti, btnImage;
     private TextView pill, multiBadge, message;
     private Button messageBtn;
     private View controls;
@@ -100,6 +101,7 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         btnClose = findViewById(R.id.btn_close);
         btnFlash = findViewById(R.id.btn_flash);
         btnMulti = findViewById(R.id.btn_multi);
+        btnImage = findViewById(R.id.btn_image);
         pill = findViewById(R.id.pill);
         multiBadge = findViewById(R.id.multi_badge);
         message = findViewById(R.id.message);
@@ -110,6 +112,8 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         btnClose.setOnClickListener(v -> close());
         btnFlash.setOnClickListener(v -> setTorch(!torch));
         btnMulti.setOnClickListener(v -> setMulti(!multi));
+        btnImage.setOnClickListener(v -> pickImage());
+        controls.addOnLayoutChangeListener((v, l, t, r, bt, ol, ot, or, ob) -> positionButtons());
         pill.setOnClickListener(v -> onPill());
         messageBtn.setOnClickListener(v -> onMessageButton());
         overlay.setOnTouchListener(new Gestures());
@@ -223,11 +227,84 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     private void applyHandedness() {
         boolean left = App.get().prefs().leftHanded();
         FrameLayout.LayoutParams bl = (FrameLayout.LayoutParams) findViewById(R.id.buttons).getLayoutParams();
-        bl.gravity = Gravity.BOTTOM | (left ? Gravity.START : Gravity.END);
+        bl.gravity = Gravity.TOP | (left ? Gravity.START : Gravity.END);
         findViewById(R.id.buttons).setLayoutParams(bl);
+        positionButtons();
         FrameLayout.LayoutParams zl = (FrameLayout.LayoutParams) zoomBar.getLayoutParams();
         zl.gravity = Gravity.CENTER_VERTICAL | (left ? Gravity.END : Gravity.START);
         zoomBar.setLayoutParams(zl);
+    }
+
+    /** Keeps the centre of × at half the screen height (the column hangs above it). */
+    private void positionButtons() {
+        View col = findViewById(R.id.buttons);
+        if (controls.getHeight() == 0 || btnClose.getHeight() == 0) return;
+        int closeCenter = btnClose.getTop() + btnClose.getHeight() / 2;   // within the column
+        int top = Math.max(0, controls.getHeight() / 2 - closeCenter - controls.getPaddingTop());
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) col.getLayoutParams();
+        if (lp.topMargin != top) { lp.topMargin = top; col.setLayoutParams(lp); }
+    }
+
+    // ---------------- read from image ----------------
+    private void pickImage() {
+        Intent i;
+        if (Build.VERSION.SDK_INT >= 33 || (Build.VERSION.SDK_INT >= 30 && android.os.ext.SdkExtensions.getExtensionVersion(Build.VERSION_CODES.R) >= 2))
+            i = new Intent("android.provider.action.PICK_IMAGES").setType("image/*");   // the system photo picker
+        else
+            i = new Intent(Intent.ACTION_GET_CONTENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE);
+        try {
+            startActivityForResult(i, REQ_IMAGE);
+        } catch (android.content.ActivityNotFoundException e) {
+            try {
+                startActivityForResult(new Intent(Intent.ACTION_GET_CONTENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE), REQ_IMAGE);
+            } catch (android.content.ActivityNotFoundException e2) {
+                flash(getString(R.string.no_app));
+            }
+        }
+    }
+
+    @Override protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req != REQ_IMAGE || res != RESULT_OK || data == null || data.getData() == null) return;
+        final Uri uri = data.getData();
+        readingImage = true;
+        flash(getString(R.string.reading_image));
+        new Thread(() -> {
+            final List<String> codes = PhotoReader.read(getApplicationContext(), uri);
+            ui.post(() -> onImageCodes(codes));
+        }, "image-decode").start();
+    }
+
+    /** @param codes null = the picture could not be read */
+    void onImageCodes(List<String> codes) {
+        readingImage = false;
+        if (isFinishing() || isDestroyed()) return;
+        if (codes == null) { flash(getString(R.string.image_unreadable)); return; }
+        if (codes.isEmpty()) { flash(getString(R.string.image_no_code)); return; }
+        flashUntil = 0;
+        History h = App.get().history();
+        long now = System.currentTimeMillis();
+        Actions.vibrate(this, 40);
+        if (codes.size() == 1) {
+            History.Entry e = h.addSingle(codes.get(0), now);
+            startActivity(new Intent(this, DetailActivity.class).putExtra(DetailActivity.EXTRA_ID, e.id));
+            return;
+        }
+        History.Entry g = h.newGroup(now);
+        for (String t : codes) h.addChild(g.id, t, now);
+        startActivities(new Intent[]{new Intent(this, MainActivity.class), new Intent(this, CodesActivity.class)
+                .putExtra(CodesActivity.EXTRA_GROUP, g.id).putExtra(CodesActivity.EXTRA_JUST_SCANNED, true)});
+    }
+
+    private boolean readingImage;   // a picked picture is being decoded: the camera does not open a read meanwhile
+    private String flashText;
+    private long flashUntil;
+
+    /** A short message in the pill (image reading). */
+    private void flash(String text) {
+        flashText = text;
+        flashUntil = SystemClock.uptimeMillis() + 2500;
+        renderPill();
     }
 
     private void renderButtons() {
@@ -282,6 +359,12 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     private String suppressedShown;
 
     private void renderPill() {
+        if (SystemClock.uptimeMillis() < flashUntil) {
+            pill.setVisibility(View.VISIBLE);
+            pill.setText(flashText);
+            suppressedShown = null;
+            return;
+        }
         if (multi) {
             int n = logic.collectedCount();
             pill.setVisibility(View.VISIBLE);
@@ -301,6 +384,7 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     }
 
     private void onPill() {
+        if (SystemClock.uptimeMillis() < flashUntil) return;
         if (multi) { if (logic.collectedCount() > 0) close(); return; }
         String s = suppressedShown;
         if (s == null) return;
@@ -313,7 +397,7 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
 
     // ---------------- results (UI thread) ----------------
     private void onSingle(String text) {
-        if (handled || isFinishing()) return;
+        if (handled || readingImage || isFinishing()) return;
         handled = true;
         Actions.vibrate(this, 40);
         History.Entry e = App.get().history().addSingle(text, System.currentTimeMillis());
@@ -696,5 +780,6 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     void collectForTest(String text) { if (logic.collect(text)) onCollected(text); }
     void setZoomForTest(float min, float max, float z) { zoomMin = min; zoomMax = max; zoomBar.setRange(min, max); zoom = z; zoomBar.setZoom(z); }
     View zoomBarForTest() { return zoomBar; }
+    CharSequence pillTextForTest() { return pill.getVisibility() == View.VISIBLE ? pill.getText() : null; }
     void hideMessageForTest() { showMessage(null, null); }
 }

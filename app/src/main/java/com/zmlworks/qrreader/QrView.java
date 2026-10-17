@@ -40,7 +40,7 @@ public final class QrView extends View {
         int scale = Math.max(1, avail / n);
         int side = n * scale;
         int l = getPaddingLeft() + (getWidth() - getPaddingLeft() - getPaddingRight() - side) / 2;
-        int t = getPaddingTop() + (getHeight() - getPaddingTop() - getPaddingBottom() - side) / 2;
+        int t = getPaddingTop();   // top-aligned: the input below stays close
         src.set(0, 0, n, n);
         dst.set(l, t, l + side, t + side);
         c.drawBitmap(bmp, src, dst, paint);

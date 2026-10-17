@@ -3,6 +3,9 @@
     <item name="about_link" type="id" />
     <item name="name_input" type="id" />
     <item name="template_input" type="id" />
-    <item name="jump_input" type="id" />
+    <item name="jump_day" type="id" />
+    <item name="jump_month" type="id" />
+    <item name="jump_year" type="id" />
+    <item name="clear_message" type="id" />
     <item name="obscured" type="id" />
 </resources>

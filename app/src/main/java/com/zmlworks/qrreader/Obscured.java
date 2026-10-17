@@ -9,12 +9,10 @@ import android.text.Spanned;
 import android.text.TextPaint;
 import android.widget.TextView;
 
-import java.util.Random;
 
 /**
- * The blurred content line of a protected row. The real text is never drawn: the line shows placeholder glyphs whose
- * length comes from the entry id (not from the text), blurred by RenderEffect on Android 12+ or drawn from a
- * pre-blurred bitmap below that.
+ * The blurred content line of a protected row. The real text is never drawn: the line shows the fixed
+ * {@link #PLACEHOLDER}, blurred by RenderEffect on Android 12+ or drawn from a pre-blurred bitmap below that.
  */
 final class Obscured {
     private Obscured() {}
@@ -23,19 +21,8 @@ final class Obscured {
     /** tests: the bitmap path on every API level (JVM screenshots draw in software, where RenderEffect does not show) */
     static boolean forceBitmapForTest;
 
-    /** random lower-case "words", 14-30 characters, the same for an id every time (no flicker on rebind) */
-    static String placeholder(long id) {
-        Random r = new Random(id * 0x9E3779B97F4A7C15L + 0x2545F4914F6CDD1DL);
-        int n = 14 + r.nextInt(17);
-        StringBuilder b = new StringBuilder(n);
-        int word = 0;
-        for (int i = 0; i < n; i++) {
-            if (word >= 3 && r.nextInt(5) == 0 && i < n - 2) { b.append(' '); word = 0; continue; }
-            b.append((char) ('a' + r.nextInt(26)));
-            word++;
-        }
-        return b.toString();
-    }
+    /** what is drawn (then blurred) instead of the content: the same fixed string for every protected row */
+    static final String PLACEHOLDER = " * * * * * * * * * * *";
 
     /** Shows (on) or removes (off) the obscured line in `title`. */
     static void apply(TextView title, long id, boolean on) {
@@ -47,10 +34,10 @@ final class Obscured {
                 title.setRenderEffect(android.graphics.RenderEffect.createBlurEffect(r, r, android.graphics.Shader.TileMode.DECAL));
             } else title.setRenderEffect(null);
             title.setTag(R.id.obscured, on ? "render-effect" : null);
-            if (on) title.setText(placeholder(id));
+            if (on) title.setText(PLACEHOLDER);
         } else {
             title.setTag(R.id.obscured, on ? "bitmap" : null);
-            if (on) title.setText(blurredLine(title, placeholder(id), Math.max(1, Math.round(BLUR_DP * density))));
+            if (on) title.setText(blurredLine(title, PLACEHOLDER, Math.max(1, Math.round(BLUR_DP * density))));
         }
         title.setContentDescription(on ? title.getContext().getString(R.string.protected_title) : null);
     }

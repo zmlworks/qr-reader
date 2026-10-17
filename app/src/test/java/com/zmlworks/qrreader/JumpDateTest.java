@@ -1,7 +1,6 @@
 package com.zmlworks.qrreader;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 
 import org.junit.Test;
 
@@ -10,20 +9,6 @@ import java.time.ZoneId;
 import java.util.Arrays;
 
 public class JumpDateTest {
-    @Test public void parses() {
-        assertEquals(LocalDate.of(2026, 10, 17), JumpDate.parse("17102026"));
-        assertEquals(LocalDate.of(2026, 10, 17), JumpDate.parse(" 17/10/2026 "));
-        assertEquals(LocalDate.of(2026, 1, 7), JumpDate.parse("7/1/2026"));
-        assertEquals(LocalDate.of(2026, 1, 7), JumpDate.parse("07.01.2026"));
-        assertEquals(LocalDate.of(2026, 1, 7), JumpDate.parse("07-01-2026"));
-        assertNull(JumpDate.parse("31022026"));
-        assertNull(JumpDate.parse("2026/10/17"));
-        assertNull(JumpDate.parse("1710202"));
-        assertNull(JumpDate.parse("17/10/26"));
-        assertNull(JumpDate.parse(""));
-        assertNull(JumpDate.parse(null));
-    }
-
     @Test public void findsTheDayOrTheNearestEarlier() {
         ZoneId z = ZoneId.of("UTC");
         long d17 = LocalDate.of(2026, 10, 17).atTime(9, 0).atZone(z).toInstant().toEpochMilli();

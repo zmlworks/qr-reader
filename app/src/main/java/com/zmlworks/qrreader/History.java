@@ -178,31 +178,35 @@ public final class History {
         return new Removal(out);
     }
 
-    public Removal clear() { return clear(true); }
+    public Removal clear() { return clear(true, true); }
 
-    /** What "Clear all history" would delete: codes (singles and codes in groups), protected among them, favorites kept. */
+    /** What "Clear all history" would delete: codes (singles and codes in groups), and the protected ones among them. */
     public static final class ClearPlan {
-        public int codes, prot, keptFavorites;
+        public int codes, prot;
     }
 
-    public ClearPlan planClear(boolean includingFavorites) {
+    private static boolean kept(Entry e, boolean favorites, boolean protectedToo) {
+        return (e.fav && !favorites) || (e.prot && !protectedToo);
+    }
+
+    /** @param favorites also delete favorites  @param protectedToo also delete protected codes */
+    public ClearPlan planClear(boolean favorites, boolean protectedToo) {
         ClearPlan p = new ClearPlan();
         for (Entry e : entries) {
-            if (e.kind == GROUP) continue;
-            if (e.fav && !includingFavorites) { p.keptFavorites++; continue; }
+            if (e.kind == GROUP || kept(e, favorites, protectedToo)) continue;
             p.codes++;
             if (e.prot) p.prot++;
         }
         return p;
     }
 
-    /** Deletes everything, or everything but the favorites (a group keeps just its favorite codes). */
-    public Removal clear(boolean includingFavorites) {
+    /** Deletes everything except what is kept (favorites / protected codes); a group keeps just its kept codes. */
+    public Removal clear(boolean favorites, boolean protectedToo) {
         List<Entry> out = new ArrayList<>();
         java.util.Set<Long> keepGroups = new java.util.HashSet<>();
-        if (!includingFavorites) for (Entry e : entries) if (e.kind == CHILD && e.fav) keepGroups.add(e.parent);
+        for (Entry e : entries) if (e.kind == CHILD && kept(e, favorites, protectedToo)) keepGroups.add(e.parent);
         for (Entry e : entries) {
-            boolean keep = !includingFavorites && (e.kind == GROUP ? keepGroups.contains(e.id) : e.fav);
+            boolean keep = e.kind == GROUP ? keepGroups.contains(e.id) : kept(e, favorites, protectedToo);
             if (!keep) out.add(e);
         }
         if (out.isEmpty()) return new Removal(out);

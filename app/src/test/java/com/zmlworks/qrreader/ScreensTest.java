@@ -2,6 +2,7 @@ package com.zmlworks.qrreader;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.robolectric.Shadows.shadowOf;
 
@@ -16,6 +17,7 @@ import android.graphics.Paint;
 import android.graphics.Shader;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.TextView;
@@ -58,7 +60,7 @@ public class ScreensTest {
         App app = (App) RuntimeEnvironment.getApplication();
         app.wasInBackground = false;
         app.authUntil = 0;
-        app.allCodes = false;
+        app.nonQr = false;
         app.holdForeground = false;
         Auth.testResult = null;
         Auth.testPrompts = 0;
@@ -201,18 +203,20 @@ public class ScreensTest {
         return s;
     }
 
-    /** Multi and image at the top (below the status bar), flash a bit above ×, × at half the screen height; one side. */
+    /** Multi and image at the top (below the status bar), flash a bit above ×, × (big, framed) a bit above half height; one side. */
     static void checkColumn(ScannerActivity s) {
         View multi = s.findViewById(R.id.btn_multi), image = s.findViewById(R.id.btn_image), flash = s.findViewById(R.id.btn_flash),
                 close = s.findViewById(R.id.btn_close);
         assertTrue("multi near the top: " + topIn(multi), topIn(multi) < dp(s, 80));
         assertTrue(centerY(multi) < centerY(image));
         assertTrue("image near the top too", topIn(image) + image.getHeight() < dp(s, 160));
-        assertTrue("a big gap down to flash", topIn(flash) - (topIn(image) + image.getHeight()) > dp(s, 150));
+        assertTrue("a big gap down to flash: " + (topIn(flash) - (topIn(image) + image.getHeight())) / s.getResources().getDisplayMetrics().density, topIn(flash) - (topIn(image) + image.getHeight()) > dp(s, 80));
         assertTrue(centerY(flash) < centerY(close));
         int g2 = topIn(close) - (topIn(flash) + flash.getHeight());
         assertTrue("flash sits a bit above ×: " + g2, g2 >= dp(s, 24) && g2 <= dp(s, 48));
-        assertTrue("× at half height: " + centerY(close), Math.abs(centerY(close) - H / 2) <= dp(s, 2));
+        assertTrue("× a bit above half height: " + centerY(close), Math.abs(centerY(close) - Math.round(H * 0.44f)) <= dp(s, 2));
+        assertTrue("big × button: " + close.getWidth(), close.getWidth() >= dp(s, 72) && close.getHeight() >= dp(s, 72));
+        assertNotNull("rounded-square frame", close.getBackground());
         for (View v : new View[]{image, flash, close}) assertEquals("same column", centerX(multi), centerX(v));
     }
 
@@ -591,7 +595,7 @@ public class ScreensTest {
         m.findViewById(R.id.set_clear).performClick();
         AlertDialog clear = m.settingsPage.lastDialog;
         assertTrue(clear.isShowing());
-        clear.getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
+        clear.cancel();
         assertEquals(6, h.topLevel().size());
         // dark mode: on -> remembered
         m.findViewById(R.id.set_dark).performClick();
@@ -760,7 +764,7 @@ public class ScreensTest {
         TextView title = row.findViewById(R.id.row_title);
         assertEquals(how, title.getTag(R.id.obscured));
         String shown = title.getText().toString();
-        if (how.equals("render-effect")) assertEquals(Obscured.placeholder(e.id), shown);
+        if (how.equals("render-effect")) assertEquals(" * * * * * * * * * * *", shown);
         assertTrue("no real text: " + shown, !shown.contains(e.text) && (e.name == null || !shown.contains(e.name)));
         assertEquals(View.VISIBLE, row.findViewById(R.id.row_sub).getVisibility());
     }
@@ -870,7 +874,7 @@ public class ScreensTest {
     }
 
     @Test public void scannerAllCodesModeFreezeAndFormats() throws Exception {
-        Intent in = new Intent(RuntimeEnvironment.getApplication(), ScannerActivity.class).putExtra(ScannerActivity.EXTRA_ALL_CODES, true);
+        Intent in = new Intent(RuntimeEnvironment.getApplication(), ScannerActivity.class).putExtra(ScannerActivity.EXTRA_NON_QR, true);
         ActivityController<ScannerActivity> ac = Robolectric.buildActivity(ScannerActivity.class, in).setup();
         ScannerActivity s = ac.get();
         s.findViewById(R.id.preview).setVisibility(View.INVISIBLE);
@@ -879,11 +883,11 @@ public class ScreensTest {
         for (int i = 0; i < 50; i++) { Thread.sleep(10); ShadowLooper.idleMainLooper(); }
         s.hideMessageForTest();
         s.setZoomForTest(1, 8, 2.4f);
-        assertTrue(App.get().allCodes);
-        assertTrue(s.allModeForTest());
+        assertTrue(App.get().nonQr);
+        assertTrue(s.nonQrModeForTest());
         TextView badge = s.findViewById(R.id.mode_badge);
         assertEquals(View.VISIBLE, badge.getVisibility());
-        assertEquals("All codes", badge.getText().toString());
+        assertEquals("Non-QR", badge.getText().toString());
         layout(s);
         checkColumn(s);
         assertTrue("badge at the top centre", Math.abs(centerX(badge) - W / 2) <= 2 && topIn(badge) < dp(s, 80));
@@ -892,7 +896,7 @@ public class ScreensTest {
         badge.getLocationInWindow(bl);
         multi.getLocationInWindow(ml);
         assertTrue("badge clear of the buttons", bl[0] + badge.getWidth() < ml[0]);
-        shot(s, "scanner-all-codes", fakeCamera(new String[0], new float[0][], new ArrayList<>()));
+        shot(s, "scanner-non-qr", fakeCamera(new String[0], new float[0][], new ArrayList<>()));
         // a read: saved at once with its format, the detail opens after the freeze
         float[] corners = {300, 1100, 900, 1100, 900, 1400, 300, 1400};
         s.readForTest(new QrEngine.Code("4006381333931", corners, "EAN-13"));
@@ -915,35 +919,35 @@ public class ScreensTest {
         shot(m, "history-formats", null);
         // tapping the badge ends the mode
         badge.performClick();
-        assertTrue(!App.get().allCodes);
+        assertTrue(!App.get().nonQr);
         assertEquals(View.GONE, badge.getVisibility());
     }
 
-    @Test public void allCodesSessionEndsWithCloseOrLeaving() {
-        Intent in = new Intent(RuntimeEnvironment.getApplication(), ScannerActivity.class).putExtra(ScannerActivity.EXTRA_ALL_CODES, true);
+    @Test public void nonQrSessionEndsWithCloseOrLeaving() {
+        Intent in = new Intent(RuntimeEnvironment.getApplication(), ScannerActivity.class).putExtra(ScannerActivity.EXTRA_NON_QR, true);
         ActivityController<ScannerActivity> ac = Robolectric.buildActivity(ScannerActivity.class, in).setup();
-        assertTrue(App.get().allCodes);
+        assertTrue(App.get().nonQr);
         ac.pause().stop();
-        assertTrue("leaving the app ends it", !App.get().allCodes);
+        assertTrue("leaving the app ends it", !App.get().nonQr);
         ActivityController<ScannerActivity> ac2 = Robolectric.buildActivity(ScannerActivity.class,
-                new Intent(RuntimeEnvironment.getApplication(), ScannerActivity.class).putExtra(ScannerActivity.EXTRA_ALL_CODES, true)).setup();
-        assertTrue(App.get().allCodes);
+                new Intent(RuntimeEnvironment.getApplication(), ScannerActivity.class).putExtra(ScannerActivity.EXTRA_NON_QR, true)).setup();
+        assertTrue(App.get().nonQr);
         // the photo picker is not leaving the app
         ac2.get().findViewById(R.id.btn_image).performClick();
         assertTrue(App.get().holdForeground);
         ac2.pause().stop();
-        assertTrue(App.get().allCodes);
+        assertTrue(App.get().nonQr);
         ac2.start().resume();
         App.get().holdForeground = false;
         ac2.get().findViewById(R.id.btn_close).performClick();
-        assertTrue("× ends it", !App.get().allCodes);
+        assertTrue("× ends it", !App.get().nonQr);
     }
 
     @Test public void settingsOnceLineStartsAllCodes() throws Exception {
         Intent i = new Intent(RuntimeEnvironment.getApplication(), MainActivity.class).putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_SETTINGS);
         MainActivity m = Robolectric.buildActivity(MainActivity.class, i).setup().get();
         View once = m.findViewById(R.id.set_once);
-        assertEquals("Scan other barcode types too (one time)", ((TextView) m.findViewById(R.id.once_text)).getText().toString());
+        assertEquals("Scan non-QR once", ((TextView) m.findViewById(R.id.once_text)).getText().toString());
         layout(m);
         // a normal row near the bottom, right above About (where Clear all history was)
         android.view.ViewGroup col = (android.view.ViewGroup) once.getParent();
@@ -952,7 +956,7 @@ public class ScreensTest {
         once.performClick();
         Intent next = shadowOf(m).getNextStartedActivity();
         assertEquals(ScannerActivity.class.getName(), next.getComponent().getClassName());
-        assertTrue(next.getBooleanExtra(ScannerActivity.EXTRA_ALL_CODES, false));
+        assertTrue(next.getBooleanExtra(ScannerActivity.EXTRA_NON_QR, false));
         assertTrue(m.isFinishing());
     }
 
@@ -992,7 +996,29 @@ public class ScreensTest {
 
     // ---- 0.4.0 ----
 
-    @Test public void settingsClearAllAtTheTopWithFavoritesChoice() throws Exception {
+    /** drags the slider's thumb from the start to frac of the track and lets go */
+    static void slide(SlideToConfirm sl, float frac) {
+        if (sl.getWidth() == 0) {
+            sl.measure(View.MeasureSpec.makeMeasureSpec(dp(sl, 300), View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(dp(sl, 56), View.MeasureSpec.EXACTLY));
+            sl.layout(0, 0, dp(sl, 300), dp(sl, 56));
+        }
+        float h = sl.getHeight() - sl.getPaddingTop() - sl.getPaddingBottom(), x0 = sl.getPaddingLeft() + h / 2, y = sl.getHeight() / 2f;
+        float x1 = x0 + frac * (sl.getWidth() - sl.getPaddingLeft() - sl.getPaddingRight() - h);
+        long t = android.os.SystemClock.uptimeMillis();
+        sl.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, x0, y, 0));
+        sl.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 50, android.view.MotionEvent.ACTION_MOVE, (x0 + x1) / 2, y, 0));
+        sl.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 100, android.view.MotionEvent.ACTION_MOVE, x1, y, 0));
+        sl.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 150, android.view.MotionEvent.ACTION_UP, x1, y, 0));
+        ShadowLooper.idleMainLooper();
+    }
+
+    static int dp(View v, int d) { return Math.round(d * v.getResources().getDisplayMetrics().density); }
+
+    static String message(AlertDialog d) { return ((TextView) d.findViewById(R.id.clear_message)).getText().toString(); }
+
+    // ---- 0.5.0 ----
+
+    @Test public void settingsClearAllWithFavoritesAndProtectedChoices() throws Exception {
         Intent i = new Intent(RuntimeEnvironment.getApplication(), MainActivity.class).putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_SETTINGS);
         MainActivity m = Robolectric.buildActivity(MainActivity.class, i).setup().get();
         layout(m);
@@ -1002,79 +1028,177 @@ public class ScreensTest {
         assertTrue(topIn(clear) - (topIn(m.findViewById(R.id.top_bar)) + m.findViewById(R.id.top_bar).getHeight()) < dp(m, 4));
         assertEquals(View.GONE, m.findViewById(R.id.btn_scan_top).getVisibility());
         assertEquals(View.GONE, m.findViewById(R.id.btn_jump).getVisibility());
-        CheckBox fav = m.findViewById(R.id.cb_clear_fav);
-        assertTrue("favorites are kept by default", !fav.isChecked());
+        CheckBox fav = m.findViewById(R.id.cb_clear_fav), prot = m.findViewById(R.id.cb_clear_prot);
+        assertTrue("both off by default", !fav.isChecked() && !prot.isChecked());
+        // stacked: incl. favorites above incl. protected, on the right of the row
+        View rf = m.findViewById(R.id.set_clear_fav), rp = m.findViewById(R.id.set_clear_prot);
+        assertTrue(topIn(rf) < topIn(rp));
+        assertTrue(rf.getLeft() >= 0 && centerX(rf) > W / 2 && centerX(rp) > W / 2);
+        assertEquals("incl. favorites", ((TextView) ((ViewGroup) rf).getChildAt(0)).getText().toString());
+        assertEquals("incl. protected", ((TextView) ((ViewGroup) rp).getChildAt(0)).getText().toString());
         assertEquals("10 codes", ((TextView) m.findViewById(R.id.clear_value)).getText().toString());
         h.setProtected(url, true);
-        // default: everything but the favorites (jp)
+        // default: everything but favorites (jp) and protected codes (url); no question about the protected one
         clear.performClick();
         AlertDialog d = m.settingsPage.lastDialog;
-        assertEquals("9 codes will be deleted. This includes 1 protected code. 1 favorite is kept. This cannot be undone.",
-                shadowOf(d).getMessage().toString());
-        assertEquals("Delete all history except favorites?", shadowOf(d).getTitle().toString());
-        shot(m, "settings-clear-keep-favorites", null, d);
-        // protected codes would go: it asks first; refused -> nothing deleted
-        Auth.testResult = false;
-        d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
-        ShadowLooper.idleMainLooper();
-        assertEquals(1, Auth.testPrompts);
+        assertEquals("Delete all history?", shadowOf(d).getTitle().toString());
+        assertEquals("8 codes will be deleted.", message(d));
+        for (int b : new int[]{AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE})
+            assertTrue("no buttons, only the slider", d.getButton(b) == null || d.getButton(b).getVisibility() != View.VISIBLE);
+        shot(m, "settings-clear-default", null, d);
+        // a short drag springs back, nothing deleted; back cancels
+        slide(m.settingsPage.lastSlider, 0.5f);
+        assertTrue(d.isShowing());
         assertEquals(6, h.topLevel().size());
+        d.onBackPressed();
+        assertTrue(!d.isShowing());
+        assertEquals(6, h.topLevel().size());
+        // all the way: deleted, favorites and protected kept, no authentication
         clear.performClick();
+        slide(m.settingsPage.lastSlider, 1f);
+        assertEquals(0, Auth.testPrompts);
+        assertTrue(!m.settingsPage.lastDialog.isShowing());
+        assertEquals(2, h.topLevel().size());
+        // incl. protected: asks first (refused -> nothing deleted), singular texts
+        m.findViewById(R.id.set_clear_prot).performClick();
+        assertTrue(prot.isChecked());
+        clear.performClick();
+        d = m.settingsPage.lastDialog;
+        assertEquals("1 code will be deleted.\nThis includes 1 protected code.", message(d));
+        shot(m, "settings-clear-including-protected", null, d);
+        Auth.testResult = false;
+        slide(m.settingsPage.lastSlider, 1f);
+        assertEquals(1, Auth.testPrompts);
+        assertEquals(2, h.topLevel().size());
         Auth.testResult = true;
-        m.settingsPage.lastDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
-        ShadowLooper.idleMainLooper();
+        clear.performClick();
+        slide(m.settingsPage.lastSlider, 1f);
+        assertEquals(2, Auth.testPrompts);
         assertEquals(1, h.topLevel().size());
         assertEquals(jp, h.topLevel().get(0).id);
-        // including favorites
+        // only the favorite left and incl. favorites off: nothing to delete, no dialog
+        AlertDialog before = m.settingsPage.lastDialog;
+        clear.performClick();
+        assertSame(before, m.settingsPage.lastDialog);
+        assertEquals("Nothing to delete", org.robolectric.shadows.ShadowToast.getTextOfLatestToast());
+        // incl. favorites: a tap outside cancels, then sliding deletes it
         m.findViewById(R.id.set_clear_fav).performClick();
         assertTrue(fav.isChecked());
         clear.performClick();
         d = m.settingsPage.lastDialog;
-        assertEquals("Delete all history, including favorites?", shadowOf(d).getTitle().toString());
-        assertEquals("1 code will be deleted. This cannot be undone.", shadowOf(d).getMessage().toString());
-        shot(m, "settings-clear-including-favorites", null, d);
-        d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
-        ShadowLooper.idleMainLooper();
+        assertEquals("1 code will be deleted.", message(d));
+        assertTrue("tap outside cancels", shadowOf(d).isCancelableOnTouchOutside());
+        slide(m.settingsPage.lastSlider, 1f);
         assertEquals(0, h.size());
         // the History tab still has its scan button
         m.select(MainActivity.TAB_HISTORY);
         assertEquals(View.VISIBLE, m.findViewById(R.id.btn_scan_top).getVisibility());
         assertEquals(View.VISIBLE, m.findViewById(R.id.btn_jump).getVisibility());
+        // not remembered: a new start has both off
+        MainActivity m2 = Robolectric.buildActivity(MainActivity.class, i).setup().get();
+        assertTrue(!((CheckBox) m2.findViewById(R.id.cb_clear_fav)).isChecked() && !((CheckBox) m2.findViewById(R.id.cb_clear_prot)).isChecked());
+    }
+
+    @Test public void clearCountsPlural() throws Exception {
+        h.setProtected(url, true);
+        h.setProtected(wifi, true);
+        Intent i = new Intent(RuntimeEnvironment.getApplication(), MainActivity.class).putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_SETTINGS);
+        MainActivity m = Robolectric.buildActivity(MainActivity.class, i).setup().get();
+        m.findViewById(R.id.set_clear_prot).performClick();
+        m.findViewById(R.id.set_clear_fav).performClick();
+        m.findViewById(R.id.set_clear).performClick();
+        assertEquals("10 codes will be deleted.\nThis includes 2 protected codes.", message(m.settingsPage.lastDialog));
+    }
+
+    @Test public void unlockPillOnSettingsToo() throws Exception {
+        h.setProtected(url, true);
+        MainActivity m = Robolectric.buildActivity(MainActivity.class).setup().get();
+        Auth.testResult = true;
+        Auth.require(m, true, "test", () -> { }, null);
+        ShadowLooper.idleMainLooper();
+        View pill = m.findViewById(R.id.unlock_pill);
+        layout(m);
+        assertEquals(View.VISIBLE, pill.getVisibility());
+        m.select(MainActivity.TAB_SETTINGS);
+        layout(m);
+        assertEquals("pill in the Settings top bar", View.VISIBLE, pill.getVisibility());
+        shot(m, "settings-unlock-pill", null);
+        m.select(MainActivity.TAB_CREATE);
+        assertEquals(View.GONE, pill.getVisibility());
+        m.select(MainActivity.TAB_SETTINGS);
+        pill.performClick();   // tap locks
+        assertEquals(0, Auth.remainingMs());
+        assertEquals(View.GONE, pill.getVisibility());
     }
 
     @Test public void jumpToDate() throws Exception {
         java.time.ZoneId z = java.time.ZoneId.systemDefault();
-        long day = 86_400_000L;
         h.clear();
-        java.time.LocalDate base = java.time.LocalDate.of(2026, 10, 17);
-        for (int k = 0; k < 40; k++) {   // one code per day, 40 days back, skipping 1 Oct
+        java.time.LocalDate today = java.time.LocalDate.now(z), base = today.minusDays(2);
+        java.time.LocalDate gap = base.minusDays(16);
+        for (int k = 0; k < 40; k++) {   // one code per day, 40 days back from 2 days ago, skipping one day
             java.time.LocalDate d = base.minusDays(k);
-            if (d.getDayOfMonth() == 1 && d.getMonthValue() == 10) continue;
+            if (d.equals(gap)) continue;
             h.addSingle("code of " + d, d.atTime(12, 0).atZone(z).toInstant().toEpochMilli());
         }
+        java.time.LocalDate oldest = base.minusDays(39);
         MainActivity m = Robolectric.buildActivity(MainActivity.class).setup().get();
         layout(m);
         m.findViewById(R.id.btn_jump).performClick();
         ShadowLooper.idleMainLooper();
         AlertDialog d = m.historyPage.jumpDialog;
-        EditText et = d.findViewById(R.id.jump_input);
-        et.setText("31/02/2026");
-        d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
-        assertTrue(d.isShowing());
-        assertNotNull(et.getError());
-        et.setText("05102026");
-        et.setError(null);
+        android.widget.NumberPicker day = d.findViewById(R.id.jump_day), month = d.findViewById(R.id.jump_month), year = d.findViewById(R.id.jump_year);
+        assertNotNull(day);
+        assertSame(m.historyPage.jumpPickers[0], day);
+        // order day, month, year; starts at the newest code's day
+        ViewGroup row = (ViewGroup) ((View) day.getParent()).getParent();
+        assertEquals(day.getParent(), row.getChildAt(0));
+        assertEquals(month.getParent(), row.getChildAt(1));
+        assertEquals(year.getParent(), row.getChildAt(2));
+        assertEquals(base.getDayOfMonth(), day.getValue());
+        assertEquals(base.getMonthValue(), month.getValue());
+        assertEquals(base.getYear(), year.getValue());
+        assertEquals(oldest.getYear(), year.getMinValue());
+        assertEquals(today.getYear(), year.getMaxValue());
+        if (base.getMonthValue() == today.getMonthValue()) assertEquals("no later month than today's", today.getMonthValue(), month.getMaxValue());
         shot(m, "history-jump-to-date", null, d);
+        // the range is oldest .. today: turning past today stops at today, before the oldest stops there
+        spin(year, year.getMaxValue());
+        spin(month, 12);
+        spin(day, 31);
+        assertEquals(today, date(day, month, year));
+        spin(year, year.getMinValue());
+        spin(month, 1);
+        spin(day, 1);
+        assertEquals(oldest, date(day, month, year));
+        // the gap day: the nearest earlier one
+        spin(year, gap.getYear());
+        spin(month, gap.getMonthValue());
+        spin(day, gap.getDayOfMonth());
+        assertEquals(gap, date(day, month, year));
         d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
         ShadowLooper.idleMainLooper();
         layout(m);
         SwipeListView list = m.findViewById(R.id.list);
-        assertEquals("code of 2026-10-05", h.get(list.getAdapter().getItemId(list.getFirstVisiblePosition())).text);
-        // no code on 1 Oct: the nearest earlier day
-        assertEquals(16, m.historyPage.jumpTo(java.time.LocalDate.of(2026, 10, 1)));
-        assertEquals("code of 2026-09-30", h.topLevel().get(16).text);
-        assertEquals(-1, m.historyPage.jumpTo(java.time.LocalDate.of(2020, 1, 1)));
-        assertEquals(0, m.historyPage.jumpTo(java.time.LocalDate.of(2030, 1, 1)));
+        assertEquals("code of " + gap.minusDays(1), h.get(list.getAdapter().getItemId(list.getFirstVisiblePosition())).text);
+        assertEquals(15, m.historyPage.jumpTo(gap.plusDays(1)));
+        assertEquals(-1, m.historyPage.jumpTo(oldest.minusDays(1)));
+        assertEquals(0, m.historyPage.jumpTo(today));
+    }
+
+    /** turns a wheel to v as a user would (the change listener runs) */
+    static void spin(android.widget.NumberPicker p, int v) {
+        int old = p.getValue();
+        p.setValue(Math.max(p.getMinValue(), Math.min(p.getMaxValue(), v)));
+        try {
+            java.lang.reflect.Method m = android.widget.NumberPicker.class.getDeclaredMethod("notifyChange", int.class, int.class);
+            m.setAccessible(true);
+            m.invoke(p, old, p.getValue());
+        } catch (Exception e) { throw new AssertionError(e); }
+    }
+
+    static java.time.LocalDate date(android.widget.NumberPicker d, android.widget.NumberPicker m, android.widget.NumberPicker y) {
+        return java.time.LocalDate.of(y.getValue(), m.getValue(), d.getValue());
     }
 
     // -- "Already read" regression: only for codes seen again in a frame of the current scanning session --

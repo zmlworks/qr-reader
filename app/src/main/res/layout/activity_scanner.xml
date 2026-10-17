@@ -36,7 +36,7 @@
             android:gravity="center_horizontal"
             android:orientation="vertical">
 
-        <!-- hidden all-codes mode (tap = back to QR only) -->
+        <!-- hidden "Scan non-QR once" mode (tap = back to QR) -->
         <TextView
             android:id="@+id/mode_badge"
             android:layout_width="wrap_content"
@@ -47,7 +47,7 @@
             android:paddingTop="4dp"
             android:paddingEnd="12dp"
             android:paddingBottom="4dp"
-            android:text="@string/all_codes_badge"
+            android:text="@string/non_qr_badge"
             android:textColor="#FF5BE37D"
             android:textSize="13sp"
             android:textStyle="bold"
@@ -99,7 +99,7 @@
         <!-- near the top (below the status bar): multi, read from image; mirrored for left-handed use -->
         <LinearLayout
             android:id="@+id/buttons_top"
-            android:layout_width="wrap_content"
+            android:layout_width="72dp"
             android:layout_height="wrap_content"
             android:layout_gravity="top|end"
             android:gravity="center_horizontal"
@@ -142,7 +142,7 @@
         <!-- flash, then (after a wider gap) × at about half the screen height; ScannerActivity keeps × there -->
         <LinearLayout
             android:id="@+id/buttons"
-            android:layout_width="wrap_content"
+            android:layout_width="72dp"
             android:layout_height="wrap_content"
             android:layout_gravity="top|end"
             android:gravity="center_horizontal"
@@ -155,11 +155,15 @@
                 android:contentDescription="@string/flash_on"
                 android:src="@drawable/ic_flash_off" />
 
+            <!-- ×: bigger, rounded square, amber; 34 dp below flash so flash is a little harder to hit by mistake -->
             <ImageButton
                 android:id="@+id/btn_close"
-                style="@style/ScanButton"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
                 android:layout_marginTop="34dp"
+                android:background="@drawable/btn_close_bg"
                 android:contentDescription="@string/stop_scanning"
+                android:scaleType="center"
                 android:src="@drawable/ic_close" />
         </LinearLayout>
     </FrameLayout>

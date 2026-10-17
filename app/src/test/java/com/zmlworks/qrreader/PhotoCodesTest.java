@@ -30,7 +30,7 @@ public class PhotoCodesTest {
     }
 
     static List<QrEngine.Code> codes(int[] px, int w, int h, boolean all) {
-        return PhotoCodes.decode(PhotoCodes.luminance(px, w, h), w, h, Collections.singletonList(all ? new JavaAllFormatsEngine() : new JavaEngine()));
+        return PhotoCodes.decode(PhotoCodes.luminance(px, w, h), w, h, Collections.singletonList(all ? new JavaNonQrEngine() : new JavaEngine()));
     }
 
     /** a 1D barcode drawn `scale` px per module, `barH` px high, centred on white */
@@ -75,14 +75,12 @@ public class PhotoCodesTest {
         assertEquals(Collections.singletonList("tiny"), r);
     }
 
-    @Test public void qrHasNoFormatLabel() {
+    @Test public void nonQrModeIgnoresQrCodes() {
         int w = 400, h = 400;
-        List<QrEngine.Code> r = codes(picture(w, h, new String[]{"hello"}, new int[][]{{80, 80}}, 8), w, h, true);
-        assertEquals(1, r.size());
-        assertEquals(null, r.get(0).format);
+        assertTrue(codes(picture(w, h, new String[]{"hello"}, new int[][]{{80, 80}}, 8), w, h, true).isEmpty());
     }
 
-    @Test public void allFormatsReadsLinearBarcodes() throws Exception {
+    @Test public void nonQrModeReadsLinearBarcodes() throws Exception {
         int w = 900, h = 400;
         int[] ean = barcode(com.google.zxing.BarcodeFormat.EAN_13, "4006381333931", w, h, 4, 160);
         assertTrue("QR-only mode ignores barcodes", codes(ean, w, h, false).isEmpty());

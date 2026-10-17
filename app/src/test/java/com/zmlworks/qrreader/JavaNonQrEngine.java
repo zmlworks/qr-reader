@@ -13,15 +13,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Tests only: every format Java ZXing reads, standing in for zxing-cpp's ALL_READABLE (the native library does not
- * load on the JVM), so the format plumbing of "Read from image" can be checked.
+ * Tests only: every format Java ZXing reads except QR, standing in for zxing-cpp's non-QR set (the native library
+ * does not load on the JVM), so the format plumbing of "Read from image" can be checked.
  */
-final class JavaAllFormatsEngine implements QrEngine {
-    @Override public String name() { return "ZXing (all formats, tests)"; }
+final class JavaNonQrEngine implements QrEngine {
+    @Override public String name() { return "ZXing (non-QR, tests)"; }
 
     @Override public List<Code> decode(byte[] y, int w, int h) {
         Map<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
         hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
+        java.util.EnumSet<com.google.zxing.BarcodeFormat> f = java.util.EnumSet.allOf(com.google.zxing.BarcodeFormat.class);
+        f.remove(com.google.zxing.BarcodeFormat.QR_CODE);
+        hints.put(DecodeHintType.POSSIBLE_FORMATS, f);
         MultiFormatReader r = new MultiFormatReader();
         r.setHints(hints);
         try {

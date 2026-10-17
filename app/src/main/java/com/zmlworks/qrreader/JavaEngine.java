@@ -21,7 +21,7 @@ import java.util.Set;
 
 /**
  * Fallback decoder (pure Java ZXing core) for devices where the zxing-cpp native library is not available.
- * QR only, also in all-codes mode: ZXing's other readers would add about 75 KB to the APK for a path that the shipped
+ * QR only (so "Scan non-QR once" reads nothing without zxing-cpp): ZXing's other readers would add about 75 KB to the APK for a path that the shipped
  * ABIs (arm64-v8a, armeabi-v7a, both with zxing-cpp) practically never take.
  */
 final class JavaEngine implements QrEngine {

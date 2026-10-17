@@ -10,7 +10,7 @@
         android:orientation="vertical"
         android:paddingBottom="24dp">
 
-        <!-- Clear all history at the top; the checkbox on the right decides about favorites -->
+        <!-- Clear all history at the top; the checkboxes on the right decide about favorites / protected codes -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -21,6 +21,7 @@
                 android:id="@+id/set_clear"
                 style="@style/SettingRow"
                 android:layout_width="0dp"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:paddingStart="20dp"
                 android:paddingEnd="8dp"
@@ -36,31 +37,70 @@
                     style="@style/SettingSub" />
             </LinearLayout>
 
+            <!-- what else Clear all history deletes: two lines, both off at every start -->
             <LinearLayout
-                android:id="@+id/set_clear_fav"
                 android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:background="?android:attr/selectableItemBackground"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="8dp"
-                android:paddingEnd="16dp">
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:orientation="vertical">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/set_clear_fav"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/incl_favorites"
-                    android:textColor="@color/dim"
-                    android:textSize="13sp" />
+                    android:layout_height="40dp"
+                    android:layout_gravity="end"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="16dp">
 
-                <CheckBox
-                    android:id="@+id/cb_clear_fav"
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/incl_favorites"
+                        android:textColor="@color/dim"
+                        android:textSize="13sp" />
+
+                    <CheckBox
+                        android:id="@+id/cb_clear_fav"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:clickable="false"
+                        android:focusable="false"
+                        android:importantForAccessibility="no" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/set_clear_prot"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:clickable="false"
-                    android:focusable="false"
-                    android:importantForAccessibility="no" />
+                    android:layout_height="40dp"
+                    android:layout_gravity="end"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/incl_protected"
+                        android:textColor="@color/dim"
+                        android:textSize="13sp" />
+
+                    <CheckBox
+                        android:id="@+id/cb_clear_prot"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:clickable="false"
+                        android:focusable="false"
+                        android:importantForAccessibility="no" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
 

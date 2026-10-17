@@ -51,28 +51,83 @@ final class HistoryPage {
     /** the last Jump to date dialog (tests) */
     android.app.AlertDialog jumpDialog;
 
-    /** Jump to date: ddmmyyyy or dd/mm/yyyy; scrolls to the first row of that day or of the nearest earlier day. */
+    /** the pickers of the last Jump to date dialog (tests): day, month, year */
+    android.widget.NumberPicker[] jumpPickers;
+
+    /**
+     * Jump to date: three wheels, day / month / year (the ddmmyyyy order), from the oldest row's day to today, starting
+     * at the newest row's day. Scrolls to the first row of that day or of the nearest earlier day.
+     */
     void jumpToDate() {
-        final android.widget.EditText et = new android.widget.EditText(a);
-        et.setId(R.id.jump_input);
-        et.setSingleLine(true);
-        et.setHint(R.string.jump_hint);
-        et.setInputType(android.text.InputType.TYPE_CLASS_DATETIME | android.text.InputType.TYPE_DATETIME_VARIATION_DATE);
-        android.widget.LinearLayout box = new android.widget.LinearLayout(a);
-        int pad = (int) (20 * a.getResources().getDisplayMetrics().density);
-        box.setPadding(pad, pad / 2, pad, 0);
-        box.addView(et, new android.widget.LinearLayout.LayoutParams(-1, -2));
-        final android.app.AlertDialog d = new android.app.AlertDialog.Builder(a).setTitle(R.string.jump_to_date).setMessage(R.string.jump_help)
-                .setView(box).setPositiveButton(R.string.jump, null).setNegativeButton(R.string.cancel, null).create();
-        d.setOnShowListener(x -> d.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            java.time.LocalDate day = JumpDate.parse(et.getText().toString());
-            if (day == null) { et.setError(a.getString(R.string.jump_invalid)); return; }
-            d.dismiss();
-            jumpTo(day);
-        }));
-        d.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
-        d.show();
-        jumpDialog = d;
+        if (items.isEmpty()) { android.widget.Toast.makeText(a, favOnly ? R.string.empty_favorites : R.string.empty_history, android.widget.Toast.LENGTH_SHORT).show(); return; }
+        java.time.ZoneId z = java.time.ZoneId.systemDefault();
+        java.time.LocalDate newest = JumpDate.dayOf(items.get(0).time, z), oldest = JumpDate.dayOf(items.get(items.size() - 1).time, z);
+        java.time.LocalDate today = java.time.LocalDate.now(z);
+        final java.time.LocalDate min = oldest.isBefore(today) ? oldest : today, max = newest.isAfter(today) ? newest : today;
+        final android.widget.NumberPicker day = picker(R.id.jump_day, 1, 31), month = picker(R.id.jump_month, 1, 12),
+                year = picker(R.id.jump_year, min.getYear(), max.getYear());
+        final String[] names = new java.text.DateFormatSymbols().getShortMonths();
+        final java.time.LocalDate[] cur = {newest};
+        final Runnable show = () -> {   // each wheel only offers what stays within oldest .. today
+            java.time.LocalDate c = cur[0];
+            boolean firstYear = c.getYear() == min.getYear(), lastYear = c.getYear() == max.getYear();
+            int m0 = firstYear ? min.getMonthValue() : 1, m1 = lastYear ? max.getMonthValue() : 12;
+            month.setDisplayedValues(null);
+            month.setMinValue(m0);
+            month.setMaxValue(m1);
+            month.setDisplayedValues(java.util.Arrays.copyOfRange(names, m0 - 1, m1));
+            boolean firstMonth = firstYear && c.getMonthValue() == min.getMonthValue(), lastMonth = lastYear && c.getMonthValue() == max.getMonthValue();
+            day.setMinValue(firstMonth ? min.getDayOfMonth() : 1);
+            day.setMaxValue(lastMonth ? max.getDayOfMonth() : c.lengthOfMonth());
+            day.setValue(c.getDayOfMonth());
+            month.setValue(c.getMonthValue());
+            year.setValue(c.getYear());
+        };
+        android.widget.NumberPicker.OnValueChangeListener l = (p, o, n) -> {
+            int y = year.getValue(), m = month.getValue();
+            java.time.LocalDate d = java.time.LocalDate.of(y, m, Math.min(day.getValue(), java.time.YearMonth.of(y, m).lengthOfMonth()));
+            cur[0] = d.isBefore(min) ? min : d.isAfter(max) ? max : d;   // only days with history up to today
+            show.run();
+        };
+        for (android.widget.NumberPicker p : new android.widget.NumberPicker[]{day, month, year}) p.setOnValueChangedListener(l);
+        show.run();
+        android.widget.LinearLayout row = new android.widget.LinearLayout(a);
+        row.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+        int pad = (int) (8 * a.getResources().getDisplayMetrics().density);
+        row.setPadding(pad, pad, pad, 0);
+        row.addView(labelled(day, R.string.jump_day));
+        row.addView(labelled(month, R.string.jump_month));
+        row.addView(labelled(year, R.string.jump_year));
+        jumpPickers = new android.widget.NumberPicker[]{day, month, year};
+        jumpDialog = new android.app.AlertDialog.Builder(a).setTitle(R.string.jump_to_date).setView(row)
+                .setPositiveButton(R.string.jump, (d, w) -> jumpTo(cur[0])).setNegativeButton(R.string.cancel, null).show();
+    }
+
+    private android.widget.NumberPicker picker(int id, int from, int to) {
+        android.widget.NumberPicker p = new android.widget.NumberPicker(a);
+        p.setId(id);
+        p.setMinValue(from);
+        p.setMaxValue(to);
+        p.setWrapSelectorWheel(false);
+        p.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);   // wheels only, no keyboard
+        return p;
+    }
+
+    private View labelled(android.widget.NumberPicker p, int label) {
+        android.widget.LinearLayout col = new android.widget.LinearLayout(a);
+        col.setOrientation(android.widget.LinearLayout.VERTICAL);
+        col.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+        int pad = (int) (10 * a.getResources().getDisplayMetrics().density);
+        col.setPadding(pad, 0, pad, 0);
+        TextView t = new TextView(a);
+        t.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+        t.setText(label);
+        t.setTextColor(a.getColor(R.color.dim));
+        t.setTextSize(12);
+        col.addView(t, new android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        col.addView(p);
+        p.setContentDescription(a.getString(label));
+        return col;
     }
 
     /** @return the row scrolled to, or -1 */

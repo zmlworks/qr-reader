@@ -6,6 +6,11 @@ import java.util.Locale;
 public final class Formats {
     private Formats() {}
 
+    /** QR Model 1/2, Micro QR and rMQR: left out by "Scan non-QR once". */
+    public static boolean isQrFamily(String name) {
+        return name != null && (name.startsWith("QR_CODE") || name.equals("MICRO_QR_CODE") || name.equals("RMQR_CODE"));
+    }
+
     /** @param name a zxing-cpp {@code BarcodeReader.Format} or ZXing {@code BarcodeFormat} enum name */
     public static String label(String name) {
         if (name == null) return null;

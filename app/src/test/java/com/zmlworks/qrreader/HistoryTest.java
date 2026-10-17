@@ -200,7 +200,7 @@ public class HistoryTest {
         assertFalse(a.prot);
     }
 
-    @Test public void clearKeepsFavoritesOnRequest() {
+    @Test public void clearKeepsFavoritesAndProtectedOnRequest() {
         History h = new History();
         History.Entry a = h.addSingle("a", 1);
         History.Entry b = h.addSingle("b", 2);
@@ -212,19 +212,35 @@ public class HistoryTest {
         h.setFavorite(c1.id, true);
         History.Entry g2 = h.newGroup(6);
         h.addChild(g2.id, "d", 7);
-        History.ClearPlan p = h.planClear(false);
+        History.Entry e = h.addSingle("e", 8);   // a favorite and protected: kept unless both are included
+        h.setFavorite(e.id, true);
+        h.setProtected(e.id, true);
+        History.ClearPlan p = h.planClear(false, false);
+        assertEquals(2, p.codes);          // c2, d
+        assertEquals(0, p.prot);
+        p = h.planClear(false, true);
         assertEquals(3, p.codes);          // a, c2, d
         assertEquals(1, p.prot);
-        assertEquals(2, p.keptFavorites);
-        assertEquals(5, h.planClear(true).codes);
-        h.clear(false);
-        assertNull(h.get(a.id));
+        p = h.planClear(true, false);
+        assertEquals(4, p.codes);          // b, c1, c2, d
+        assertEquals(0, p.prot);
+        p = h.planClear(true, true);
+        assertEquals(6, p.codes);
+        assertEquals(2, p.prot);
+        h.clear(false, false);
+        assertNotNull(h.get(a.id));
         assertNotNull(h.get(b.id));
         assertNotNull("a group keeps its favorite codes", h.get(g.id));
         assertEquals(1, h.childCount(g.id));
         assertNull(h.get(g2.id));
-        assertEquals(0, h.planClear(false).codes);
-        h.clear(true);
+        assertEquals(0, h.planClear(false, false).codes);
+        h.clear(false, true);
+        assertNull(h.get(a.id));
+        assertNotNull(h.get(e.id));
+        h.clear(true, false);
+        assertNotNull(h.get(e.id));
+        assertEquals(1, h.size());
+        h.clear(true, true);
         assertEquals(0, h.size());
     }
 }

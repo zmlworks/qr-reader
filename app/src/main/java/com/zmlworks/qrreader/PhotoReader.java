@@ -16,7 +16,8 @@ final class PhotoReader {
     private PhotoReader() {}
 
     /** @return the codes found (maybe empty), or null if the picture could not be read. Call off the UI thread. */
-    static List<QrEngine.Code> read(Context c, Uri uri, boolean allFormats) {
+    /** @param nonQr "Scan non-QR once": every format but QR (zxing-cpp only) */
+    static List<QrEngine.Code> read(Context c, Uri uri, boolean nonQr) {
         try {
             BitmapFactory.Options o = new BitmapFactory.Options();
             o.inJustDecodeBounds = true;
@@ -36,8 +37,8 @@ final class PhotoReader {
             b.recycle();
             byte[] y = PhotoCodes.luminance(px, w, h);
             List<QrEngine> engines = new ArrayList<>();
-            engines.add(CppEngine.create(true, allFormats));   // null where the native library is missing
-            engines.add(new JavaEngine());   // QR only (see JavaEngine)
+            engines.add(CppEngine.create(true, nonQr));   // null where the native library is missing
+            if (!nonQr) engines.add(new JavaEngine());     // QR only (see JavaEngine)
             return PhotoCodes.decode(y, w, h, engines);
         } catch (IOException | SecurityException | OutOfMemoryError | IllegalArgumentException e) {
             return null;

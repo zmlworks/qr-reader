@@ -90,7 +90,7 @@ public final class MainActivity extends BaseActivity {
         // History only: Settings starts with Clear all history, so no "scan" button right above it (mis-taps)
         for (int id : new int[]{R.id.btn_scan_top, R.id.btn_jump})
             findViewById(id).setVisibility(t == TAB_HISTORY ? View.VISIBLE : View.GONE);
-        ((UnlockPill) findViewById(R.id.unlock_pill)).setAllowed(t == TAB_HISTORY);
+        ((UnlockPill) findViewById(R.id.unlock_pill)).setAllowed(t != TAB_CREATE);   // History and Settings
         renderBars();
         if (t == TAB_HISTORY) historyPage.refresh();
         if (t == TAB_SETTINGS) settingsPage.refresh();
@@ -132,8 +132,8 @@ public final class MainActivity extends BaseActivity {
     }
 
     /** Settings' hidden line: scan every barcode format for one session. */
-    void scanAllCodes() {
-        startActivity(new Intent(this, ScannerActivity.class).putExtra(ScannerActivity.EXTRA_ALL_CODES, true));
+    void scanNonQr() {
+        startActivity(new Intent(this, ScannerActivity.class).putExtra(ScannerActivity.EXTRA_NON_QR, true));
         finish();
     }
 

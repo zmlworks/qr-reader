@@ -54,7 +54,7 @@ import java.util.List;
  */
 public final class ScannerActivity extends BaseActivity implements TextureView.SurfaceTextureListener {
     private static final int REQ_CAM = 1, REQ_IMAGE = 2;
-    static final String EXTRA_ALL_CODES = "all_codes";
+    static final String EXTRA_NON_QR = "non_qr";
     /** after a single-mode read the preview stays frozen with the code outlined this long before the detail opens */
     static final long FREEZE_MS = 250;
 
@@ -84,8 +84,8 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     private int camGen;              // bumped by closeCamera(): late callbacks of an older open are dropped
     private volatile boolean camInfoKnown;
     private byte[] yBuf;
-    private DecodePipeline pipe, pipeAll;   // QR only / every format (all-codes mode, made on first use)
-    private volatile boolean allMode;
+    private DecodePipeline pipe, pipeNonQr;   // QR only / every format but QR ("Scan non-QR once", made on first use)
+    private volatile boolean nonQrMode;
     private boolean frozen;               // a single read is being shown (no new outlines, camera stopped)
     private Runnable pendingOpen;
 
@@ -112,7 +112,7 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         btnMulti = findViewById(R.id.btn_multi);
         btnImage = findViewById(R.id.btn_image);
         modeBadge = findViewById(R.id.mode_badge);
-        modeBadge.setOnClickListener(v -> { App.get().allCodes = false; renderMode(); });
+        modeBadge.setOnClickListener(v -> { App.get().nonQr = false; renderMode(); });
         pill = findViewById(R.id.pill);
         multiBadge = findViewById(R.id.multi_badge);
         message = findViewById(R.id.message);
@@ -172,17 +172,17 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         takeMode(i);
     }
 
-    /** Settings' hidden line starts an all-codes session. */
+    /** Settings' hidden row starts a non-QR session. */
     private void takeMode(Intent i) {
-        if (i != null && i.getBooleanExtra(EXTRA_ALL_CODES, false)) {
-            App.get().allCodes = true;
-            i.removeExtra(EXTRA_ALL_CODES);
+        if (i != null && i.getBooleanExtra(EXTRA_NON_QR, false)) {
+            App.get().nonQr = true;
+            i.removeExtra(EXTRA_NON_QR);
         }
     }
 
     private void renderMode() {
-        allMode = App.get().allCodes;
-        modeBadge.setVisibility(allMode ? View.VISIBLE : View.GONE);
+        nonQrMode = App.get().nonQr;
+        modeBadge.setVisibility(nonQrMode ? View.VISIBLE : View.GONE);
     }
 
     @Override protected void onResume() {
@@ -271,12 +271,15 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         zoomBar.setLayoutParams(zl);
     }
 
-    /** Keeps the centre of × at half the screen height (flash hangs above it). */
+    /** where the centre of × sits, as a fraction of the screen height (a little above the middle; flash hangs above it) */
+    static final float CLOSE_CENTER = 0.44f;
+
+    /** Keeps the centre of × at {@link #CLOSE_CENTER} of the screen height (flash hangs above it). */
     private void positionButtons() {
         View col = findViewById(R.id.buttons);
         if (controls.getHeight() == 0 || btnClose.getHeight() == 0) return;
         int closeCenter = btnClose.getTop() + btnClose.getHeight() / 2;   // within the column
-        int top = Math.max(0, controls.getHeight() / 2 - closeCenter - controls.getPaddingTop());
+        int top = Math.max(0, Math.round(controls.getHeight() * CLOSE_CENTER) - closeCenter - controls.getPaddingTop());
         FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) col.getLayoutParams();
         if (lp.topMargin != top) { lp.topMargin = top; col.setLayoutParams(lp); }
     }
@@ -288,7 +291,7 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
             i = new Intent("android.provider.action.PICK_IMAGES").setType("image/*");   // the system photo picker
         else
             i = new Intent(Intent.ACTION_GET_CONTENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE);
-        App.get().holdForeground = true;   // the picker is not "leaving the app" (keeps an all-codes session)
+        App.get().holdForeground = true;   // the picker is not "leaving the app" (keeps a non-QR session)
         try {
             startActivityForResult(i, REQ_IMAGE);
         } catch (android.content.ActivityNotFoundException e) {
@@ -307,11 +310,11 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         App.get().holdForeground = false;
         if (res != RESULT_OK || data == null || data.getData() == null) return;
         final Uri uri = data.getData();
-        final boolean all = App.get().allCodes;
+        final boolean nonQr = App.get().nonQr;
         readingImage = true;
         flash(getString(R.string.reading_image));
         new Thread(() -> {
-            final List<QrEngine.Code> codes = PhotoReader.read(getApplicationContext(), uri, all);
+            final List<QrEngine.Code> codes = PhotoReader.read(getApplicationContext(), uri, nonQr);
             ui.post(() -> onImageCodes(codes));
         }, "image-decode").start();
     }
@@ -380,8 +383,8 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     }
 
     private void close() {
-        App.get().allCodes = false;   // × ends an all-codes session
-        allMode = false;
+        App.get().nonQr = false;   // × ends a non-QR session
+        nonQrMode = false;
         logic.reset();
         long g = groupId;
         int n = logic.collectedCount();
@@ -753,9 +756,9 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         int w, h;
         try {
             if (pipe == null) return;
-            if (allMode && pipeAll == null) {   // camera thread
+            if (nonQrMode && pipeNonQr == null) {   // camera thread
                 QrEngine e = CppEngine.create(false, true);
-                pipeAll = new DecodePipeline(e != null ? e : new JavaEngine(), true);   // no native library: QR only
+                pipeNonQr = new DecodePipeline(e != null ? e : QrEngine.NONE, true);   // no native library: Java ZXing is QR only
             }
             w = img.getWidth(); h = img.getHeight();
             Image.Plane p = img.getPlanes()[0];
@@ -767,7 +770,7 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         } finally { img.close(); }
         long now = SystemClock.uptimeMillis();
         if (!acceptFrames) return;   // paused, or a read is being opened
-        codes = (allMode ? pipeAll : pipe).decode(yBuf, w, h, now);
+        codes = (nonQrMode ? pipeNonQr : pipe).decode(yBuf, w, h, now);
         handleFrame(codes, w, h, now);
     }
 
@@ -863,7 +866,7 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     boolean pillShownForTest() { return pill.getVisibility() == View.VISIBLE; }
     void collectForTest(String text) { if (logic.collect(text)) onCollected(text, null); }
     void readForTest(QrEngine.Code c) { List<QrEngine.Code> l = new ArrayList<>(); l.add(c); onSingle(c, l); }
-    boolean allModeForTest() { return allMode; }
+    boolean nonQrModeForTest() { return nonQrMode; }
     void setZoomForTest(float min, float max, float z) { zoomMin = min; zoomMax = max; zoomBar.setRange(min, max); zoom = z; zoomBar.setZoom(z); }
     View zoomBarForTest() { return zoomBar; }
     CharSequence pillTextForTest() { return pill.getVisibility() == View.VISIBLE ? pill.getText() : null; }

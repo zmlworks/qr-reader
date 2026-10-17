@@ -19,4 +19,22 @@ public class FormatsTest {
         assertEquals("MaxiCode", Formats.label("MAXICODE"));       // Java ZXing spelling
         assertEquals("Some New Code", Formats.label("SOME_NEW_CODE"));
     }
+
+    @Test public void qrFamily() {
+        for (String q : new String[]{"QR_CODE", "QR_CODE_MODEL_1", "QR_CODE_MODEL_2", "MICRO_QR_CODE", "RMQR_CODE"})
+            org.junit.Assert.assertTrue(q, Formats.isQrFamily(q));
+        for (String n : new String[]{"EAN_13", "DATA_MATRIX", "AZTEC", "PDF_417", "MAXI_CODE", "CODE_128"})
+            org.junit.Assert.assertTrue(n, !Formats.isQrFamily(n));
+    }
+
+    /** the non-QR mode's zxing-cpp format set: every family but QR (QR, Micro QR, rMQR); prints the whole enum for the report */
+    @Test public void nonQrFormatSet() {
+        java.util.Set<zxingcpp.BarcodeReader.Format> set = CppEngine.NON_QR;
+        for (zxingcpp.BarcodeReader.Format f : set) org.junit.Assert.assertTrue(f.name(), !Formats.isQrFamily(f.name()) && !f.name().startsWith("ALL_MATRIX") && !f.name().equals("ALL"));
+        for (String n : new String[]{"ALL_LINEAR", "DATA_MATRIX", "AZTEC", "PDF_417", "MAXI_CODE"})
+            org.junit.Assert.assertTrue(n, set.contains(zxingcpp.BarcodeReader.Format.valueOf(n)));
+        StringBuilder b = new StringBuilder();
+        for (zxingcpp.BarcodeReader.Format f : zxingcpp.BarcodeReader.Format.values()) b.append(f.name()).append(set.contains(f) ? "+ " : " ");
+        System.out.println("zxing-cpp formats (+ = non-QR mode): " + b);
+    }
 }

@@ -27,27 +27,38 @@ final class CppEngine implements QrEngine {
     private final Rect rect = new Rect();
     private byte[] rowCopy;
 
-    private CppEngine(BarcodeReader r) { reader = r; }
+    private final boolean nonQr;
+
+    private CppEngine(BarcodeReader r, boolean nonQr) { reader = r; this.nonQr = nonQr; }
+
+    /**
+     * Non-QR mode: all linear formats plus the 2D symbologies that are not QR (QR Model 1/2, Micro QR and rMQR are
+     * all left out). ALL_MATRIX is not used because it includes the QR family.
+     */
+    static final Set<BarcodeReader.Format> NON_QR = Collections.unmodifiableSet(EnumSet.of(
+            BarcodeReader.Format.ALL_LINEAR,
+            BarcodeReader.Format.DATA_MATRIX, BarcodeReader.Format.AZTEC, BarcodeReader.Format.AZTEC_RUNE,
+            BarcodeReader.Format.PDF_417, BarcodeReader.Format.COMPACT_PDF_417, BarcodeReader.Format.MICRO_PDF_417,
+            BarcodeReader.Format.MAXI_CODE));
 
     static CppEngine create() { return create(false, false); }
 
     /**
      * @param image a still picture (gallery): also try inverted and downscaled
-     * @param all every format zxing-cpp reads (hidden all-codes mode); also tries rotations so linear barcodes read in
-     *            any orientation of the phone
+     * @param nonQr every format zxing-cpp reads except the QR family (hidden "Scan non-QR once" mode); also tries
+     *              rotations so linear barcodes read in any orientation of the phone
      */
-    static CppEngine create(boolean image, boolean all) {
+    static CppEngine create(boolean image, boolean nonQr) {
         try {
             BarcodeReader.Options o = new BarcodeReader.Options();
-            Set<BarcodeReader.Format> f = EnumSet.of(all ? BarcodeReader.Format.ALL_READABLE : BarcodeReader.Format.QR_CODE);
-            o.setFormats(f);
+            o.setFormats(nonQr ? NON_QR : EnumSet.of(BarcodeReader.Format.QR_CODE));
             o.setTryHarder(true);
-            o.setTryRotate(image || all);
+            o.setTryRotate(image || nonQr);
             o.setTryInvert(image);
             o.setTryDownscale(image);
             o.setMaxNumberOfSymbols(255);
             o.setBinarizer(BarcodeReader.Binarizer.LOCAL_AVERAGE);
-            return new CppEngine(new BarcodeReader(o));
+            return new CppEngine(new BarcodeReader(o), nonQr);
         } catch (Throwable t) {   // UnsatisfiedLinkError, NoClassDefFoundError, ExceptionInInitializerError
             return null;
         }
@@ -84,7 +95,9 @@ final class CppEngine implements QrEngine {
         Set<String> seen = new HashSet<>();
         for (BarcodeReader.Result r : rs) {
             String t = r.getText();
-            if (t == null || t.isEmpty() || r.getError() != null || !seen.add(t)) continue;
+            if (t == null || t.isEmpty() || r.getError() != null) continue;
+            if (nonQr && r.getFormat() != null && Formats.isQrFamily(r.getFormat().name())) continue;   // belt and braces
+            if (!seen.add(t)) continue;
             float[] c = null;
             BarcodeReader.Position p = r.getPosition();
             if (p != null) c = new float[]{x(p.getTopLeft()), yy(p.getTopLeft()), x(p.getTopRight()), yy(p.getTopRight()),

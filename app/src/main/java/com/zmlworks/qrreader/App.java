@@ -21,8 +21,8 @@ public final class App extends Application implements Application.ActivityLifecy
     History.Removal pendingUndo;
     /** protected actions need no new prompt until then (elapsedRealtime); also across leaving the app, see Auth */
     long authUntil;
-    /** hidden all-codes mode: on for one scanning session (until × or leaving the app) */
-    boolean allCodes;
+    /** hidden "Scan non-QR once": on for one scanning session (until × or leaving the app) */
+    boolean nonQr;
     /** a system screen of ours is up (photo picker, confirm screen lock): not "leaving the app" */
     boolean holdForeground;
     /** bumped each time the app goes to the background: a new "visit" (the scanner forgets its last read) */
@@ -59,7 +59,7 @@ public final class App extends Application implements Application.ActivityLifecy
         if (--started == 0 && !a.isChangingConfigurations() && !holdForeground) {
             wasInBackground = true;
             visit++;
-            allCodes = false;   // so does an all-codes session
+            nonQr = false;   // so does a non-QR session
         }
     }
 

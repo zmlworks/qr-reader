@@ -20,7 +20,7 @@
     <string name="reading_image">Reading the image…</string>
     <string name="image_no_code">No QR code found in that image</string>
     <string name="image_unreadable">That image could not be opened</string>
-    <string name="all_codes_badge">All codes</string>
+    <string name="non_qr_badge">Non-QR</string>
     <string name="camera_denied">Camera access is needed to scan QR codes.</string>
     <string name="grant">Allow camera</string>
     <string name="no_camera">No camera found.</string>
@@ -113,8 +113,8 @@
         <item quantity="other">%d codes</item>
     </plurals>
     <string name="incl_favorites">incl. favorites</string>
-    <string name="clear_confirm_all">Delete all history, including favorites?</string>
-    <string name="clear_confirm_keep_fav">Delete all history except favorites?</string>
+    <string name="incl_protected">incl. protected</string>
+    <string name="clear_confirm_title">Delete all history?</string>
     <plurals name="clear_n_codes">
         <item quantity="one">%d code will be deleted.</item>
         <item quantity="other">%d codes will be deleted.</item>
@@ -123,18 +123,14 @@
         <item quantity="one">This includes %d protected code.</item>
         <item quantity="other">This includes %d protected codes.</item>
     </plurals>
-    <plurals name="clear_n_kept">
-        <item quantity="one">%d favorite is kept.</item>
-        <item quantity="other">%d favorites are kept.</item>
-    </plurals>
-    <string name="cannot_undo">This cannot be undone.</string>
-    <string name="clear_only_favorites">Nothing to delete: only favorites are left</string>
+    <string name="nothing_to_delete">Nothing to delete</string>
+    <string name="slide_to_delete">Slide to delete</string>
     <string name="auth_clear_title">Delete protected codes</string>
     <string name="cleared">History cleared</string>
     <string name="about">About &amp; licenses</string>
     <string name="about_head">%1$s %2$s\nCopyright © 2026 zmlworks · MIT License\nNo internet access, no analytics: scans stay on this device.\nMade by the AI assistant Grok Bot for zmlworks.</string>
     <string name="about_sub">Version %1$s · MIT · open-source notices</string>
-    <string name="once">Scan other barcode types too (one time)</string>
+    <string name="once">Scan non-QR once</string>
     <string name="unlocked_pill">Unlocked · %ds</string>
     <string name="unlocked_pill_short">%ds</string>
     <plurals name="unlocked_pill_cd">
@@ -142,10 +138,10 @@
         <item quantity="other">Protected items unlocked for %d more seconds. Tap to lock now</item>
     </plurals>
     <string name="jump_to_date">Jump to date</string>
-    <string name="jump_help">Day, month, year: 17102026 or 17/10/2026</string>
-    <string name="jump_hint">ddmmyyyy</string>
+    <string name="jump_day">Day</string>
+    <string name="jump_month">Month</string>
+    <string name="jump_year">Year</string>
     <string name="jump">Jump</string>
-    <string name="jump_invalid">Not a date (ddmmyyyy)</string>
     <string name="jump_none">Nothing on or before %s</string>
     <string name="jump_earlier">Nothing on %1$s; showing %2$s</string>
     <string name="cancel">Cancel</string>

@@ -43,6 +43,16 @@
     <string name="copied">Copied</string>
     <string name="just_scanned">Just scanned</string>
     <string name="multi_scan">Multi scan</string>
+    <string name="reorder">Drag to reorder</string>
+    <string name="search_history">Search history</string>
+    <string name="search_hint">Search text, names, memos</string>
+    <string name="search_close">Clear or close search</string>
+    <string name="no_matches">No matches</string>
+    <plurals name="search_hidden">
+        <item quantity="one">%1$d protected item hidden · %2$s</item>
+        <item quantity="other">%1$d protected items hidden · %2$s</item>
+    </plurals>
+    <string name="auth_search_title">Show protected items</string>
     <string name="copy_all">Copy all</string>
     <string name="share_all">Share all</string>
     <string name="row_number">#%1$d</string>
@@ -62,7 +72,7 @@
     <string name="none">none</string>
     <string name="share">Share</string>
     <string name="share_text">Share text</string>
-    <string name="copy_clipboard">Copy to clipboard</string>
+    <string name="copy">Copy</string>
     <string name="search_web">Search the web</string>
     <string name="create_this_qr">Create this QR code</string>
     <string name="rename">Name this item</string>
@@ -90,6 +100,11 @@
     <string name="delete">Delete</string>
     <string name="no_app">No app can open this.</string>
     <string name="not_found">This item no longer exists.</string>
+    <string name="memo">Memo</string>
+    <string name="memo_hint">Add a note (saved automatically)</string>
+    <string name="created_marker">Created</string>
+    <string name="created_qr">QR code of this text</string>
+    <string name="auth_delete_title">Delete protected item</string>
     <!-- create -->
     <string name="brightness_toggle">QR code. Tap to switch the screen brightness</string>
     <string name="brightness_max">Brightness max</string>
@@ -97,6 +112,9 @@
     <string name="create_hint">Type text or a URL</string>
     <string name="create_empty">The QR code appears here as you type.</string>
     <string name="too_long">Too long for one QR code (max. about 2,300 bytes).</string>
+    <string name="save_to_history">Save to history</string>
+    <string name="saved_to_history">Saved to history</string>
+    <string name="already_saved">Already saved</string>
     <string name="qr_info" tools:ignore="PluralsCandidate">Version %1$d · %2$d×%2$d · EC M · %3$d bytes</string>
     <!-- settings -->
     <string name="left_handed">I\'m a lefty</string>
@@ -104,9 +122,9 @@
     <string name="dark_mode">Dark mode</string>
     <string name="confirm_browser">Confirm before opening browser</string>
     <string name="search_engine">Search Engine</string>
-    <string name="custom_url_help">Search URL; %s is replaced by the text. Empty = Google.</string>
+    <string name="custom_url_help" formatted="false">%s is replaced by the text</string>
     <string name="reset_google">Google</string>
-    <string name="custom_url_invalid">Enter an http(s) URL containing %s.</string>
+    <string name="custom_url_invalid" formatted="false">Enter an address with %s, e.g. www.google.com/search?q=%s</string>
     <string name="clear_history">Clear all history</string>
     <plurals name="clear_history_sub">
         <item quantity="one">%d code</item>
@@ -130,6 +148,23 @@
     <string name="about">About &amp; licenses</string>
     <string name="about_head">%1$s %2$s\nCopyright © 2026 zmlworks · MIT License\nNo internet access, no analytics: scans stay on this device.\nMade by the AI assistant Grok Bot for zmlworks.</string>
     <string name="about_sub">Version %1$s · MIT · open-source notices</string>
+    <string name="export_title">Export history?</string>
+    <string name="export">Export</string>
+    <string name="export_nothing">Nothing to export</string>
+    <plurals name="export_message">
+        <item quantity="one">%d code will be saved as one JSON file (text, format, dates, names, memos, favorites, groups).</item>
+        <item quantity="other">%d codes will be saved as one JSON file (text, format, dates, names, memos, favorites, groups).</item>
+    </plurals>
+    <plurals name="export_message_protected">
+        <item quantity="one">This includes %d protected code, written in plain text. Unlock first.</item>
+        <item quantity="other">This includes %d protected codes, written in plain text. Unlock first.</item>
+    </plurals>
+    <string name="auth_export_title">Export protected codes</string>
+    <string name="export_failed">The file could not be written.</string>
+    <plurals name="exported">
+        <item quantity="one">Exported %d code</item>
+        <item quantity="other">Exported %d codes</item>
+    </plurals>
     <string name="once">[Scan non-QR once]</string>
     <string name="date_format">Date format</string>
     <string name="unlocked_pill">Unlocked · %ds</string>

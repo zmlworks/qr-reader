@@ -390,11 +390,11 @@ public class ScreensTest {
         TextView text = d.findViewById(R.id.text);
         assertEquals(d.getColor(R.color.link), text.getCurrentTextColor());
         assertTrue((text.getPaintFlags() & Paint.UNDERLINE_TEXT_FLAG) != 0);
-        // one action per row, in this order
+        // one action per row, in this order (0.7.0: Copy is no longer a row)
         android.widget.LinearLayout rows = d.findViewById(R.id.actions);
-        String[] labels = {d.getString(R.string.share_text), d.getString(R.string.copy_clipboard), d.getString(R.string.search_web), d.getString(R.string.create_this_qr)};
-        assertEquals(4, rows.getChildCount());
-        for (int k = 0; k < 4; k++) assertEquals(labels[k], ((TextView) rows.getChildAt(k)).getText().toString());
+        String[] labels = {d.getString(R.string.share_text), d.getString(R.string.search_web), d.getString(R.string.create_this_qr)};
+        assertEquals(3, rows.getChildCount());
+        for (int k = 0; k < 3; k++) assertEquals(labels[k], ((TextView) rows.getChildAt(k)).getText().toString());
         shot(d, "detail-url", null);
         // tap the link -> confirmation -> Open -> browser
         text.performClick();
@@ -475,7 +475,7 @@ public class ScreensTest {
         assertTrue(d.isNight());
         assertEquals(View.VISIBLE, d.findViewById(R.id.fields).getVisibility());
         android.widget.LinearLayout rows = d.findViewById(R.id.actions);
-        assertEquals(6, rows.getChildCount());   // connect, copy password + the four standard rows
+        assertEquals(5, rows.getChildCount());   // connect, copy password + the three standard rows
         assertEquals(d.getString(R.string.wifi_connect), ((TextView) rows.getChildAt(0)).getText().toString());
         assertEquals(d.getString(R.string.copy_password), ((TextView) rows.getChildAt(1)).getText().toString());
         assertEquals("Café guest Wi-Fi", ((TextView) d.findViewById(R.id.name)).getText().toString());
@@ -519,7 +519,10 @@ public class ScreensTest {
         View box = m.findViewById(R.id.qr_box);
         assertEquals(box.getWidth(), box.getHeight());
         assertTrue(topIn(box) < dp(m, 80));
-        assertEquals(dp(m, 8), topIn(in) - (topIn(box) + box.getHeight()));
+        // 0.7.0: the small "Save to history" button sits between the QR and the input
+        View save = m.findViewById(R.id.save_history);
+        assertEquals(dp(m, 8), topIn(save) - (topIn(box) + box.getHeight()));
+        assertEquals(dp(m, 8), topIn(in) - (topIn(save) + save.getHeight()));
         shot(m, "create", null);
         // keyboard open: the window is shorter and the tabs hide; QR and input both stay on screen
         m.setKeyboardForTest(true);
@@ -530,7 +533,7 @@ public class ScreensTest {
         root.layout(0, 0, W, kh);
         assertEquals(box.getWidth(), box.getHeight());
         assertTrue("input visible above the keyboard", topIn(in) + in.getHeight() <= kh);
-        assertEquals(dp(m, 8), topIn(in) - (topIn(box) + box.getHeight()));
+        assertEquals(dp(m, 8), topIn(in) - (topIn(save) + save.getHeight()));
         Bitmap bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(bmp);
         root.draw(c);
@@ -572,16 +575,18 @@ public class ScreensTest {
         AlertDialog d = m.settingsPage.lastDialog;
         EditText et = d.findViewById(R.id.template_input);
         et.setText("https://duckduckgo.com/?q=");
+        assertEquals("pasted scheme removed", "duckduckgo.com/?q=", et.getText().toString());
         d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
         assertTrue(d.isShowing());
         assertNotNull(et.getError());
         et.setText("https://duckduckgo.com/?q=%s");
         et.setError(null);   // typing clears it on a device
+        assertEquals("duckduckgo.com/?q=%s", et.getText().toString());
         shot(m, "settings-search-engine", null, d);
         d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
         ShadowLooper.idleMainLooper();
-        assertEquals("https://duckduckgo.com/?q=%s", p.searchTemplate());
-        assertEquals("https://duckduckgo.com/?q=%s", ((TextView) m.findViewById(R.id.engine_value)).getText().toString());
+        assertEquals("duckduckgo.com/?q=%s", p.searchTemplate());
+        assertEquals("duckduckgo.com/?q=%s", ((TextView) m.findViewById(R.id.engine_value)).getText().toString());
         // about: link to the repository (opens after the confirmation)
         m.settingsPage.about();
         AlertDialog about = m.settingsPage.lastDialog;
@@ -1129,12 +1134,13 @@ public class ScreensTest {
         Intent i = new Intent(RuntimeEnvironment.getApplication(), MainActivity.class).putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_SETTINGS);
         MainActivity m = Robolectric.buildActivity(MainActivity.class, i).setup().get();
         layout(m);
-        // first row of the page; no scan button in the Settings top bar (History keeps it)
-        View clear = m.findViewById(R.id.set_clear);
+        // first row of the page; 0.7.0: the scan button is back in the Settings top bar, jump and search keep their slots
+        View clear = m.findViewById(R.id.set_clear), clearRow = m.findViewById(R.id.set_clear_row);
         assertTrue(topIn(clear) < topIn(m.findViewById(R.id.set_left)));
-        assertTrue(topIn(clear) - (topIn(m.findViewById(R.id.top_bar)) + m.findViewById(R.id.top_bar).getHeight()) < dp(m, 4));
-        assertEquals("slot kept, nothing to tap", View.INVISIBLE, m.findViewById(R.id.btn_scan_top).getVisibility());
+        assertTrue(topIn((View) clearRow.getParent()) - (topIn(m.findViewById(R.id.top_bar)) + m.findViewById(R.id.top_bar).getHeight()) < dp(m, 4));
+        assertEquals(View.VISIBLE, m.findViewById(R.id.btn_scan_top).getVisibility());
         assertEquals(View.INVISIBLE, m.findViewById(R.id.btn_jump).getVisibility());
+        assertEquals(View.INVISIBLE, m.findViewById(R.id.btn_search).getVisibility());
         CheckBox fav = m.findViewById(R.id.cb_clear_fav), prot = m.findViewById(R.id.cb_clear_prot);
         assertTrue("both off by default", !fav.isChecked() && !prot.isChecked());
         // stacked: incl. favorites above incl. protected, on the right of the row
@@ -1412,4 +1418,684 @@ public class ScreensTest {
     }
 
     int countText(String t) { int n = 0; for (History.Entry e : h.topLevel()) if (t.equals(e.text)) n++; return n; }
+
+    // ---- 0.7.0 ----
+
+    static MainActivity main(int tab) {
+        Intent i = new Intent(RuntimeEnvironment.getApplication(), MainActivity.class).putExtra(MainActivity.EXTRA_TAB, tab);
+        MainActivity m = Robolectric.buildActivity(MainActivity.class, i).setup().get();
+        layout(m);
+        return m;
+    }
+
+    static List<Long> ids(SwipeListView list) {
+        List<Long> r = new ArrayList<>();
+        for (int k = 0; k < list.getAdapter().getCount(); k++) r.add(list.getAdapter().getItemId(k));
+        return r;
+    }
+
+    static View rowOf(SwipeListView list, long id) {
+        for (int k = 0; k < list.getChildCount(); k++)
+            if (list.getAdapter().getItemId(list.getFirstVisiblePosition() + k) == id) return list.getChildAt(k);
+        return null;
+    }
+
+    /** a horizontal drag of `dx` px on `row`, released without a fling (slow steps) */
+    static void swipeBy(SwipeListView list, View row, int dx) {
+        int y = row.getTop() + row.getHeight() / 2, x0 = dx > 0 ? 60 : W - 200;   // (left: clear of a ≡ handle)
+        long t = android.os.SystemClock.uptimeMillis();
+        list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, x0, y, 0));
+        int steps = 30;
+        for (int i = 1; i <= steps; i++)
+            list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + i * 60L, android.view.MotionEvent.ACTION_MOVE, x0 + dx * i / (float) steps, y, 0));
+        list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + steps * 60L + 400, android.view.MotionEvent.ACTION_MOVE, x0 + dx, y, 0));
+        list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + steps * 60L + 800, android.view.MotionEvent.ACTION_UP, x0 + dx, y, 0));
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
+    static void type(EditText et, String text) {
+        et.setText(text);
+        ShadowLooper.idleMainLooper();
+    }
+
+    static boolean bold(View row) {
+        android.graphics.Typeface tf = ((TextView) row.findViewById(R.id.row_title)).getTypeface();
+        return tf != null && tf.isBold();
+    }
+
+    @Test public void historySearchLockedUnlockedAndBothTabs() throws Exception {
+        h.setProtected(url, true);
+        h.setMemo(jp, "Card from Tanaka-san");
+        long ean = h.addSingle("4006381333931", System.currentTimeMillis() - 30 * 86_400_000L, "EAN-13").id;
+        MainActivity m = main(MainActivity.TAB_HISTORY);
+        SwipeListView list = m.findViewById(R.id.list);
+        View bar = m.findViewById(R.id.search_bar);
+        TextView hidden = m.findViewById(R.id.search_hidden);
+        assertEquals(View.GONE, bar.getVisibility());
+        assertEquals(View.VISIBLE, m.findViewById(R.id.btn_search).getVisibility());
+        m.findViewById(R.id.btn_search).performClick();
+        assertEquals(View.VISIBLE, bar.getVisibility());
+        EditText in = m.findViewById(R.id.search_input);
+        // locked: the protected URL is left out, a line says so
+        type(in, "github");
+        assertEquals(List.of(), ids(list));
+        assertEquals(View.VISIBLE, hidden.getVisibility());
+        assertEquals("1 protected item hidden · Unlock", hidden.getText().toString());
+        assertEquals(m.getString(R.string.no_matches), ((TextView) m.findViewById(R.id.empty)).getText().toString());
+        layout(m);
+        shot(m, "history-search-locked", null);
+        // matches on text, name, memo and format, case-insensitive, as you type
+        type(in, "CAFÉ");
+        assertEquals(List.of(wifi), ids(list));
+        type(in, "tanaka");
+        assertEquals(List.of(jp), ids(list));
+        type(in, "ean-13");
+        assertEquals(List.of(ean), ids(list));
+        type(in, "inv-2026-10-103");
+        assertEquals("a multi scan through its codes", List.of(group), ids(list));
+        // tap the line: authenticate -> the protected code is searched and shown normally (lock badge only)
+        type(in, "github");
+        Auth.testResult = true;
+        hidden.performClick();
+        assertEquals(1, Auth.testPrompts);
+        assertEquals(List.of(url), ids(list));
+        assertEquals(View.GONE, hidden.getVisibility());
+        layout(m);
+        assertEquals("https://github.com/zmlworks/qr-reader", rowTitle(list, 0));
+        assertNull(list.getChildAt(0).findViewById(R.id.row_title).getTag(R.id.obscured));
+        shot(m, "history-search-unlocked", null);
+        // the window runs out: filtered again at once
+        ShadowLooper.idleMainLooper(61, java.util.concurrent.TimeUnit.SECONDS);
+        assertEquals(List.of(), ids(list));
+        assertEquals(View.VISIBLE, hidden.getVisibility());
+        // Favorites tab: the same query on the favourites only
+        h.setFavorite(url, true);
+        h.setFavorite(wifi, true);
+        m.findViewById(R.id.seg_fav).performClick();
+        assertEquals(List.of(), ids(list));
+        assertEquals("1 protected item hidden · Unlock", hidden.getText().toString());
+        type(in, "caf");
+        assertEquals(List.of(wifi), ids(list));   // "Café …" (the name) and not the protected URL
+        type(in, "tanaka");
+        assertEquals(List.of(jp), ids(list));
+        type(in, "");
+        assertEquals(View.GONE, hidden.getVisibility());
+        assertEquals(3, list.getAdapter().getCount());
+        // back closes the search first
+        type(in, "tanaka");
+        m.onBackPressed();
+        assertEquals(View.GONE, bar.getVisibility());
+        assertTrue(!m.isFinishing());
+        assertEquals(3, list.getAdapter().getCount());
+    }
+
+    @Test public void boldNamesInTheList() throws Exception {
+        MainActivity m = main(MainActivity.TAB_HISTORY);
+        SwipeListView list = m.findViewById(R.id.list);
+        assertTrue("named: bold", bold(rowOf(list, wifi)));
+        assertEquals("Café guest Wi-Fi", ((TextView) rowOf(list, wifi).findViewById(R.id.row_title)).getText().toString());
+        assertTrue("not named: normal", !bold(rowOf(list, url)));
+        assertTrue(!bold(rowOf(list, group)));
+        // a recycled row loses the bold when the name goes
+        h.setName(wifi, null);
+        m.historyPage.refresh();
+        layout(m);
+        assertTrue(!bold(rowOf(list, wifi)));
+        h.setName(wifi, "Café guest Wi-Fi");
+        m.historyPage.refresh();
+        layout(m);
+        shot(m, "history-bold-names", null);
+    }
+
+    @Test public void graceShowsProtectedRowsAndReblursLive() throws Exception {
+        h.setProtected(wifi, true);
+        h.setFavorite(wifi, true);
+        List<History.Entry> ch = h.children(group);
+        h.setProtected(ch.get(0).id, true);
+        MainActivity m = main(MainActivity.TAB_HISTORY);
+        SwipeListView list = m.findViewById(R.id.list);
+        checkObscured(rowOf(list, wifi), h.get(wifi), "bitmap");
+        Auth.testResult = true;
+        Auth.require(m, true, "t", () -> { }, null);
+        layout(m);
+        View row = rowOf(list, wifi);
+        TextView title = row.findViewById(R.id.row_title);
+        assertNull("no blur in the window", title.getTag(R.id.obscured));
+        assertEquals("Café guest Wi-Fi", title.getText().toString());
+        assertTrue(bold(row));
+        assertEquals("the small lock stays", " ", ((TextView) row.findViewById(R.id.row_badge)).getText().toString());
+        assertEquals(View.VISIBLE, row.findViewById(R.id.row_star).getVisibility());
+        shot(m, "history-grace", null);
+        // multi-scan list too
+        Intent i = new Intent(RuntimeEnvironment.getApplication(), CodesActivity.class).putExtra(CodesActivity.EXTRA_GROUP, group)
+                .putExtra(CodesActivity.EXTRA_JUST_SCANNED, true);
+        CodesActivity c = Robolectric.buildActivity(CodesActivity.class, i).setup().get();
+        layout(c);
+        SwipeListView cl = c.findViewById(R.id.list);
+        assertEquals("INV-2026-10-101", rowTitle(cl, 0));
+        shot(c, "just-scanned-grace", null);
+        // the window ends by itself: blurred again without any tap
+        ShadowLooper.idleMainLooper(61, java.util.concurrent.TimeUnit.SECONDS);
+        layout(m);
+        checkObscured(rowOf(list, wifi), h.get(wifi), "bitmap");
+        assertTrue(!bold(rowOf(list, wifi)));
+        layout(c);
+        checkObscured(cl.getChildAt(0), ch.get(0), "bitmap");
+        // the pill ends it early: blurred at once
+        Auth.require(m, true, "t", () -> { }, null);
+        layout(m);
+        assertNull(rowOf(list, wifi).findViewById(R.id.row_title).getTag(R.id.obscured));
+        m.findViewById(R.id.unlock_pill).performClick();
+        layout(m);
+        checkObscured(rowOf(list, wifi), h.get(wifi), "bitmap");
+    }
+
+    @Test public void swipeThresholdAndProtectedDeleteNeedsAuth() throws Exception {
+        assertEquals(0.55f, SwipeListView.SWIPE_FRACTION, 0f);
+        assertEquals(0.3f, SwipeListView.FLING_FRACTION, 0f);
+        int w = 1000, fling = 1000;
+        assertTrue("0.35 of the width was enough before 0.7.0", !SwipeListView.isSwipe(350, 0, w, fling));
+        assertTrue(!SwipeListView.isSwipe(540, 0, w, fling));
+        assertTrue(SwipeListView.isSwipe(560, 0, w, fling));
+        assertTrue("a fling needs 0.3 of the width now", !SwipeListView.isSwipe(250, 5000, w, fling));
+        assertTrue(SwipeListView.isSwipe(310, 5000, w, fling));
+        MainActivity m = main(MainActivity.TAB_HISTORY);
+        SwipeListView list = m.findViewById(R.id.list);
+        // half the width: neither delete nor copy any more
+        swipeBy(list, rowOf(list, url), (int) (W * 0.45f));
+        assertNotNull(h.get(url));
+        android.content.ClipboardManager cm = m.getSystemService(android.content.ClipboardManager.class);
+        cm.setPrimaryClip(android.content.ClipData.newPlainText("x", "before"));
+        layout(m);
+        swipeBy(list, rowOf(list, url), -(int) (W * 0.45f));
+        assertEquals("before", cm.getPrimaryClip().getItemAt(0).getText().toString());
+        layout(m);
+        swipeBy(list, rowOf(list, url), -(int) (W * 0.6f));
+        assertEquals("https://github.com/zmlworks/qr-reader", cm.getPrimaryClip().getItemAt(0).getText().toString());
+        // protected: swipe-right delete asks; refused -> still there, the row springs back
+        h.setProtected(url, true);
+        m.historyPage.refresh();
+        layout(m);
+        Auth.testResult = false;
+        swipeBy(list, rowOf(list, url), (int) (W * 0.7f));
+        assertEquals(1, Auth.testPrompts);
+        assertNotNull(h.get(url));
+        layout(m);
+        assertEquals(0f, rowOf(list, url).findViewById(R.id.row_content).getTranslationX(), 0f);
+        // accepted -> deleted with UNDO
+        Auth.testResult = true;
+        swipeBy(list, rowOf(list, url), (int) (W * 0.7f));
+        assertEquals(2, Auth.testPrompts);
+        assertNull(h.get(url));
+        assertEquals(View.VISIBLE, m.findViewById(R.id.snack).getVisibility());
+        m.findViewById(R.id.snack_action).performClick();
+        assertNotNull(h.get(url));
+        // inside the window: no new prompt
+        layout(m);
+        swipeBy(list, rowOf(list, url), (int) (W * 0.7f));
+        assertEquals(2, Auth.testPrompts);
+        assertNull(h.get(url));
+        // a multi scan holding a protected code asks too (deleting it deletes that code)
+        Auth.lockNow();
+        h.setProtected(h.children(group).get(1).id, true);
+        m.historyPage.refresh();
+        layout(m);
+        Auth.testResult = false;
+        swipeBy(list, rowOf(list, group), (int) (W * 0.7f));
+        assertEquals(3, Auth.testPrompts);
+        assertNotNull(h.get(group));
+        // and the protected code inside the "n codes" list
+        Intent i = new Intent(RuntimeEnvironment.getApplication(), CodesActivity.class).putExtra(CodesActivity.EXTRA_GROUP, group);
+        CodesActivity c = Robolectric.buildActivity(CodesActivity.class, i).setup().get();
+        layout(c);
+        SwipeListView cl = c.findViewById(R.id.list);
+        swipeBy(cl, cl.getChildAt(1), (int) (W * 0.7f));
+        assertEquals(4, Auth.testPrompts);
+        assertEquals(5, h.childCount(group));
+        swipeBy(cl, cl.getChildAt(0), (int) (W * 0.7f));   // an unprotected one: no prompt
+        assertEquals(4, Auth.testPrompts);
+        assertEquals(4, h.childCount(group));
+    }
+
+    /** presses the ≡ of `row` and drags it by `dy` px */
+    static void dragHandle(SwipeListView list, View row, int dy) {
+        View hnd = row.findViewById(R.id.row_handle);
+        int[] l = new int[2], hl = new int[2];
+        list.getLocationInWindow(l);
+        hnd.getLocationInWindow(hl);
+        float x = hl[0] - l[0] + hnd.getWidth() / 2f, y = hl[1] - l[1] + hnd.getHeight() / 2f;
+        long t = android.os.SystemClock.uptimeMillis();
+        list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, x, y, 0));
+        for (int i = 1; i <= 20; i++)
+            list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + i * 20L, android.view.MotionEvent.ACTION_MOVE, x, y + dy * i / 20f, 0));
+        list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 500, android.view.MotionEvent.ACTION_UP, x, y + dy, 0));
+        ShadowLooper.idleMainLooper();
+    }
+
+    @Test public void favoritesReorderByHandleOnlyAndJumpHidden() throws Exception {
+        h.setFavorite(url, true);
+        h.setFavorite(wifi, true);   // with jp: three favourites, newest first url, wifi, jp
+        MainActivity m = main(MainActivity.TAB_HISTORY);
+        SwipeListView list = m.findViewById(R.id.list);
+        View pill = m.findViewById(R.id.unlock_pill);
+        assertEquals(View.VISIBLE, m.findViewById(R.id.btn_jump).getVisibility());
+        assertEquals(View.GONE, list.getChildAt(0).findViewById(R.id.row_handle).getVisibility());
+        Auth.testResult = true;
+        Auth.require(m, true, "t", () -> { }, null);
+        layout(m);
+        int[] pAll = new int[2];
+        pill.getLocationInWindow(pAll);
+        m.findViewById(R.id.seg_fav).performClick();
+        layout(m);
+        // Favorites: no jump to date (its slot stays: the pill does not move), a ≡ on every row
+        assertEquals(View.INVISIBLE, m.findViewById(R.id.btn_jump).getVisibility());
+        int[] pFav = new int[2];
+        pill.getLocationInWindow(pFav);
+        assertEquals(pAll[0], pFav[0]);
+        Auth.lockNow();
+        layout(m);
+        assertEquals(List.of(url, wifi, jp), ids(list));
+        for (int k = 0; k < 3; k++) {
+            View hnd = list.getChildAt(k).findViewById(R.id.row_handle);
+            assertEquals(View.VISIBLE, hnd.getVisibility());
+            assertTrue("on the right", centerX(hnd) > W * 0.85f);
+        }
+        shot(m, "history-favorites-reorder", null);
+        // drag url's handle two rows down
+        int rowH = list.getChildAt(1).getTop() - list.getChildAt(0).getTop();
+        dragHandle(list, list.getChildAt(0), rowH * 2);
+        assertEquals(List.of(wifi, jp, url), ids(list));
+        assertEquals("persisted", List.of(wifi, jp, url), h.favoriteOrder());
+        assertEquals(List.of(wifi, jp, url), History.parse(h.serialize()).favoriteOrder());
+        layout(m);
+        // a vertical drag elsewhere on the row is not a reorder (just the list)
+        View r0 = list.getChildAt(0);
+        int y = r0.getTop() + r0.getHeight() / 2;
+        long t = android.os.SystemClock.uptimeMillis();
+        list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, W / 2f, y, 0));
+        for (int i = 1; i <= 10; i++) list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + i * 20L, android.view.MotionEvent.ACTION_MOVE, W / 2f, y + rowH * i / 5f, 0));
+        list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 300, android.view.MotionEvent.ACTION_UP, W / 2f, y + rowH * 2, 0));
+        ShadowLooper.idleMainLooper();
+        assertEquals(List.of(wifi, jp, url), h.favoriteOrder());
+        // swipes still work on the rest of the row: left = copy
+        layout(m);
+        swipeBy(list, rowOf(list, jp), -(int) (W * 0.7f));
+        android.content.ClipboardManager cm = m.getSystemService(android.content.ClipboardManager.class);
+        assertEquals("こんにちは、世界！ QR コードのテスト", cm.getPrimaryClip().getItemAt(0).getText().toString());
+        assertEquals(List.of(wifi, jp, url), ids(list));
+        // a new start shows the saved order; searching hides the handles (no reordering of a filtered list)
+        MainActivity m2 = main(MainActivity.TAB_HISTORY);
+        m2.findViewById(R.id.seg_fav).performClick();
+        SwipeListView l2 = m2.findViewById(R.id.list);
+        assertEquals(List.of(wifi, jp, url), ids(l2));
+        m2.findViewById(R.id.btn_search).performClick();
+        type(m2.findViewById(R.id.search_input), "http");
+        layout(m2);
+        assertEquals(View.GONE, l2.getChildAt(0).findViewById(R.id.row_handle).getVisibility());
+        // back to All: jump is back, no handles
+        m2.findViewById(R.id.seg_all).performClick();
+        assertEquals(View.VISIBLE, m2.findViewById(R.id.btn_jump).getVisibility());
+    }
+
+    /** decodes what a QrView shows */
+    static String decodeView(View v) throws Exception {
+        Bitmap b = Bitmap.createBitmap(v.getWidth(), v.getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
+        c.drawColor(0xFFFFFFFF);
+        v.draw(c);
+        int[] px = new int[b.getWidth() * b.getHeight()];
+        b.getPixels(px, 0, b.getWidth(), 0, 0, b.getWidth(), b.getHeight());
+        java.util.Map<com.google.zxing.DecodeHintType, Object> hints = new java.util.EnumMap<>(com.google.zxing.DecodeHintType.class);
+        hints.put(com.google.zxing.DecodeHintType.TRY_HARDER, Boolean.TRUE);
+        return new com.google.zxing.qrcode.QRCodeReader().decode(new com.google.zxing.BinaryBitmap(new com.google.zxing.common.HybridBinarizer(
+                new com.google.zxing.RGBLuminanceSource(b.getWidth(), b.getHeight(), px))), hints).getText();
+    }
+
+    @Test public void createSaveToHistoryAndCreatedDetail() throws Exception {
+        MainActivity m = main(MainActivity.TAB_CREATE);
+        TextView save = m.findViewById(R.id.save_history);
+        assertEquals("Save to history", save.getText().toString());
+        assertTrue("small, not a big button", save.getHeight() <= dp(m, 36) && save.getWidth() < W / 2);
+        // empty text: ignored
+        assertTrue(!save.isEnabled());
+        int n = h.size();
+        assertEquals(History.SAVE_EMPTY, m.createPage.saveToHistory());
+        assertEquals(n, h.size());
+        String text = "https://example.com/menu?table=12";
+        ((EditText) m.findViewById(R.id.input)).setText(text);
+        waitFor(() -> m.createPage.qrForTest() != null);
+        assertTrue(save.isEnabled());
+        layout(m);
+        shot(m, "create-save-to-history", null);
+        save.performClick();
+        assertEquals(n + 1, h.size());
+        History.Entry c = h.topLevel().get(0);
+        assertTrue(c.created);
+        assertEquals(text, c.text);
+        assertEquals("Saved to history", org.robolectric.shadows.ShadowToast.getTextOfLatestToast());
+        // twice: not added again
+        save.performClick();
+        assertEquals(n + 1, h.size());
+        assertEquals("Already saved", org.robolectric.shadows.ShadowToast.getTextOfLatestToast());
+        // History: a small "Created" marker on the date line
+        m.select(MainActivity.TAB_HISTORY);
+        layout(m);
+        SwipeListView list = m.findViewById(R.id.list);
+        assertEquals(c.id, list.getAdapter().getItemId(0));
+        String sub = ((TextView) list.getChildAt(0).findViewById(R.id.row_sub)).getText().toString();
+        assertTrue(sub, sub.endsWith(" · Created"));
+        shot(m, "history-created", null);
+        // its detail page starts with the QR code, then the text
+        DetailActivity d = detail(c.id);
+        layout(d);
+        QrView qr = d.qrForTest();
+        assertEquals(View.VISIBLE, qr.getVisibility());
+        assertTrue(qr.hasQr());
+        assertTrue("QR above the text", topIn(qr) + qr.getHeight() <= topIn(d.findViewById(R.id.text)));
+        assertEquals(text, decodeView(qr));
+        assertTrue(((TextView) d.findViewById(R.id.meta)).getText().toString().contains("Created"));
+        shot(d, "detail-created", null);
+        // a scanned code has no QR on its page
+        DetailActivity d2 = detail(url);
+        assertEquals(View.GONE, d2.qrForTest().getVisibility());
+    }
+
+    @Test public void detailCopyUnderTheTextAndMemo() throws Exception {
+        DetailActivity d = detail(jp);
+        layout(d);
+        TextView copy = d.findViewById(R.id.act_copy), text = d.findViewById(R.id.text);
+        // Copy is its own small control right under the content, not one of the rows
+        android.widget.LinearLayout rows = d.findViewById(R.id.actions);
+        assertTrue(copy.getParent() != rows);
+        int gap = topIn(copy) - (topIn(text) + text.getHeight());
+        assertTrue("right under the text: " + gap, gap >= 0 && gap <= dp(d, 4));
+        assertTrue(topIn(copy) < topIn(rows));
+        assertTrue("small", copy.getHeight() <= dp(d, 40) && copy.getWidth() < W / 3);
+        copy.performClick();
+        android.content.ClipboardManager cm = d.getSystemService(android.content.ClipboardManager.class);
+        assertEquals("こんにちは、世界！ QR コードのテスト", cm.getPrimaryClip().getItemAt(0).getText().toString());
+        // memo below the actions, saved as you type
+        EditText memo = d.findViewById(R.id.memo);
+        assertTrue(topIn(memo) > topIn(rows) + rows.getHeight());
+        assertTrue((memo.getInputType() & android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0);
+        memo.setText("Card from Tanaka-san\nreply by Friday");
+        assertNull("not at every key", h.get(jp).memo);
+        ShadowLooper.idleMainLooper(DetailActivity.MEMO_SAVE_DELAY_MS + 50, java.util.concurrent.TimeUnit.MILLISECONDS);
+        assertEquals("Card from Tanaka-san\nreply by Friday", h.get(jp).memo);
+        layout(d);
+        shot(d, "detail-memo", null);
+        // leaving the page saves at once
+        memo.setText("Card from Tanaka-san");
+        d.flushMemo();
+        assertEquals("Card from Tanaka-san", h.get(jp).memo);
+        // written to the history file
+        java.io.File f = new java.io.File(d.getFilesDir(), "history.tsv");
+        waitFor(() -> f.isFile() && History.parse(read(f)).get(jp) != null && "Card from Tanaka-san".equals(History.parse(read(f)).get(jp).memo));
+        assertEquals("Card from Tanaka-san", History.parse(read(f)).get(jp).memo);
+        // reopened: shown again; cleared = no memo
+        DetailActivity d2 = detail(jp);
+        assertEquals("Card from Tanaka-san", ((EditText) d2.findViewById(R.id.memo)).getText().toString());
+        ((EditText) d2.findViewById(R.id.memo)).setText("");
+        d2.flushMemo();
+        assertNull(h.get(jp).memo);
+    }
+
+    static String read(java.io.File f) {
+        try { return new String(java.nio.file.Files.readAllBytes(f.toPath()), java.nio.charset.StandardCharsets.UTF_8); }
+        catch (java.io.IOException e) { return ""; }
+    }
+
+    @Test public void protectedMemoOnlyAfterAuth() throws Exception {
+        h.setMemo(wifi, "door code 4711");
+        h.setProtected(wifi, true);
+        Auth.testResult = false;
+        DetailActivity d = detail(wifi);
+        assertTrue(d.lockedForTest());
+        assertEquals(View.GONE, d.findViewById(R.id.content).getVisibility());
+        assertEquals("nothing filled in while locked", "", ((EditText) d.findViewById(R.id.memo)).getText().toString());
+        Auth.testResult = true;
+        d.findViewById(R.id.btn_unlock).performClick();
+        EditText memo = d.findViewById(R.id.memo);
+        assertEquals(View.VISIBLE, d.findViewById(R.id.content).getVisibility());
+        assertEquals("door code 4711", memo.getText().toString());
+        assertTrue("kept out of keyboard learning", (memo.getInputType() & android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) != 0);
+        assertTrue((memo.getImeOptions() & android.view.inputmethod.EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) != 0);
+        assertTrue(secureFlag(d));
+        // locking with the pill saves what was typed and hides it
+        memo.setText("door code 4712");
+        d.findViewById(R.id.unlock_pill).performClick();
+        assertTrue(d.lockedForTest());
+        assertEquals("door code 4712", h.get(wifi).memo);
+    }
+
+    @Test public void settingsClearTapAreaAndScanButton() throws Exception {
+        MainActivity m = main(MainActivity.TAB_SETTINGS);
+        View title = m.findViewById(R.id.set_clear), row = m.findViewById(R.id.set_clear_row), sub = m.findViewById(R.id.clear_value);
+        assertTrue("only the title is tappable", title.isClickable() && !row.isClickable() && !sub.isClickable());
+        assertTrue("wrap_content title: " + title.getWidth(), title.getWidth() < W / 2);
+        android.view.ViewGroup outer = (android.view.ViewGroup) row.getParent();
+        assertTrue(!outer.isClickable());
+        // taps on the date line, right of the title and between title and checkboxes do nothing
+        AlertDialog before = m.settingsPage.lastDialog;
+        View root = m.getWindow().getDecorView();
+        int[] tl = new int[2];
+        title.getLocationInWindow(tl);
+        float[][] misses = {
+                {tl[0] + title.getWidth() + dp(m, 24), tl[1] + title.getHeight() / 2f},
+                {centerX(sub), centerY(sub)},
+                {dp(m, 4), centerY(title)}};
+        for (float[] xy : misses) {
+            long t = android.os.SystemClock.uptimeMillis();
+            root.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, xy[0], xy[1], 0));
+            root.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 50, android.view.MotionEvent.ACTION_UP, xy[0], xy[1], 0));
+            ShadowLooper.idleMainLooper();
+            assertSame("no dialog for a tap at " + xy[0] + "," + xy[1], before, m.settingsPage.lastDialog);
+        }
+        // a tap on the title opens it
+        long t = android.os.SystemClock.uptimeMillis();
+        root.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, centerX(title), centerY(title), 0));
+        root.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 50, android.view.MotionEvent.ACTION_UP, centerX(title), centerY(title), 0));
+        ShadowLooper.idleMainLooper();
+        assertTrue(m.settingsPage.lastDialog != before && m.settingsPage.lastDialog.isShowing());
+        m.settingsPage.lastDialog.cancel();
+        // the checkboxes are still separate taps
+        CheckBox fav = m.findViewById(R.id.cb_clear_fav), prot = m.findViewById(R.id.cb_clear_prot);
+        AlertDialog d0 = m.settingsPage.lastDialog;
+        for (View v : new View[]{m.findViewById(R.id.set_clear_fav), m.findViewById(R.id.set_clear_prot)}) {
+            t = android.os.SystemClock.uptimeMillis();
+            root.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, centerX(v), centerY(v), 0));
+            root.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 50, android.view.MotionEvent.ACTION_UP, centerX(v), centerY(v), 0));
+            ShadowLooper.idleMainLooper();
+        }
+        assertTrue(fav.isChecked() && prot.isChecked());
+        assertSame(d0, m.settingsPage.lastDialog);
+        // the scan button is back in the Settings top bar, and the pill keeps the History slot
+        View scan = m.findViewById(R.id.btn_scan_top);
+        assertEquals(View.VISIBLE, scan.getVisibility());
+        assertTrue("top right", centerX(scan) > W - dp(m, 40));
+        Auth.testResult = true;
+        Auth.require(m, true, "t", () -> { }, null);
+        layout(m);
+        View pill = m.findViewById(R.id.unlock_pill);
+        int[] onSettings = new int[2];
+        pill.getLocationInWindow(onSettings);
+        int[] scanSettings = new int[2];
+        scan.getLocationInWindow(scanSettings);
+        shot(m, "settings-scan-button-and-pill", null);
+        m.select(MainActivity.TAB_HISTORY);
+        layout(m);
+        int[] onHistory = new int[2], scanHistory = new int[2];
+        pill.getLocationInWindow(onHistory);
+        scan.getLocationInWindow(scanHistory);
+        assertEquals(onHistory[0], onSettings[0]);
+        assertEquals(onHistory[1], onSettings[1]);
+        assertEquals(scanHistory[0], scanSettings[0]);
+        m.select(MainActivity.TAB_SETTINGS);
+        scan.performClick();
+        assertEquals(ScannerActivity.class.getName(), shadowOf(m).getNextStartedActivity().getComponent().getClassName());
+        assertTrue(m.isFinishing());
+    }
+
+    @Test public void searchEngineWithoutSchemeAndMigration() throws Exception {
+        android.content.SharedPreferences sp = RuntimeEnvironment.getApplication().getSharedPreferences("settings", android.content.Context.MODE_PRIVATE);
+        sp.edit().putString("search_template", "https://duckduckgo.com/?q=%s").commit();   // as 0.6.0 stored it
+        MainActivity m = main(MainActivity.TAB_SETTINGS);
+        assertEquals("duckduckgo.com/?q=%s", ((TextView) m.findViewById(R.id.engine_value)).getText().toString());
+        assertEquals("migrated once", "duckduckgo.com/?q=%s", sp.getString("search_template", null));
+        assertEquals("https://duckduckgo.com/?q=a%20b", SearchUrl.build(App.get().prefs().searchTemplate(), "a b"));
+        m.findViewById(R.id.set_engine).performClick();
+        ShadowLooper.idleMainLooper();
+        AlertDialog d = m.settingsPage.lastDialog;
+        assertEquals("%s is replaced by the text", ((TextView) d.findViewById(android.R.id.message)).getText().toString());
+        EditText et = d.findViewById(R.id.template_input);
+        assertEquals("duckduckgo.com/?q=%s", et.getText().toString());
+        assertEquals("www.google.com/search?q=%s", et.getHint().toString());
+        // empty: OK disabled (no "empty = Google" any more)
+        et.setText("");
+        assertTrue(!d.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled());
+        // a pasted scheme is removed
+        et.setText("http://search.example.org/find?q=%s");
+        assertEquals("search.example.org/find?q=%s", et.getText().toString());
+        assertTrue(d.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled());
+        shot(m, "settings-search-engine-no-scheme", null, d);
+        d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
+        assertEquals("search.example.org/find?q=%s", sp.getString("search_template", null));
+        assertEquals("search.example.org/find?q=%s", ((TextView) m.findViewById(R.id.engine_value)).getText().toString());
+        assertEquals("always https", "https://search.example.org/find?q=x", SearchUrl.build(App.get().prefs().searchTemplate(), "x"));
+        // the Google button
+        m.findViewById(R.id.set_engine).performClick();
+        ShadowLooper.idleMainLooper();
+        m.settingsPage.lastDialog.getButton(AlertDialog.BUTTON_NEUTRAL).performClick();
+        ShadowLooper.idleMainLooper();
+        assertEquals("www.google.com/search?q=%s", ((TextView) m.findViewById(R.id.engine_value)).getText().toString());
+        // nothing on screen says https
+        assertTrue(!textOf(m.findViewById(R.id.page_settings)).contains("https"));
+        // a 0.1.0 engine choice still migrates
+        sp.edit().remove("search_template").putString("search_engine", "bing").commit();
+        assertEquals("www.bing.com/search?q=%s", App.get().prefs().searchTemplate());
+    }
+
+    @Test public void exportJsonContent() throws Exception {
+        h.setMemo(jp, "memo ✓");
+        h.setProtected(wifi, true);
+        h.setFavorite(url, true);
+        h.setFavoriteOrder(List.of(jp, url));
+        h.saveCreated("made here", System.currentTimeMillis());
+        org.json.JSONObject o = Export.json(h, "0.7.0", 1_760_000_000_000L, java.time.ZoneId.of("Asia/Tokyo"));
+        assertEquals("com.zmlworks.qrreader", o.getString("package"));
+        assertEquals("0.7.0", o.getString("appVersion"));
+        assertEquals(1, o.getInt("formatVersion"));
+        assertEquals("2025-10-09T17:53:20+09:00", o.getString("exportedAt"));
+        org.json.JSONArray items = o.getJSONArray("items");
+        assertEquals(11, items.length());   // 5 singles + 5 codes of the multi scan + the created one
+        java.util.Map<Long, org.json.JSONObject> byId = new java.util.HashMap<>();
+        for (int k = 0; k < items.length(); k++) byId.put(items.getJSONObject(k).getLong("id"), items.getJSONObject(k));
+        org.json.JSONObject w = byId.get(wifi);
+        assertEquals("WIFI:T:WPA;S:Cafe-Guest;P:espresso2026;;", w.getString("text"));
+        assertEquals("Café guest Wi-Fi", w.getString("name"));
+        assertTrue(w.getBoolean("protected"));
+        assertEquals("QR Code", w.getString("format"));
+        assertEquals(h.get(wifi).time, w.getLong("time"));
+        assertTrue(w.getString("timeIso").matches("\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d.*"));
+        assertTrue(w.isNull("memo"));
+        assertTrue(w.isNull("group"));
+        org.json.JSONObject j = byId.get(jp);
+        assertEquals("memo ✓", j.getString("memo"));
+        assertTrue(j.getBoolean("favorite"));
+        assertTrue(!j.getBoolean("created"));
+        long created = h.topLevel().get(0).id;
+        assertTrue(byId.get(created).getBoolean("created"));
+        org.json.JSONArray groups = o.getJSONArray("groups");
+        assertEquals(1, groups.length());
+        assertEquals(group, groups.getJSONObject(0).getLong("id"));
+        assertEquals(5, groups.getJSONObject(0).getJSONArray("codes").length());
+        long first = groups.getJSONObject(0).getJSONArray("codes").getLong(0);
+        assertEquals(group, byId.get(first).getLong("group"));
+        assertEquals("INV-2026-10-101", byId.get(first).getString("text"));
+        org.json.JSONArray order = o.getJSONArray("favoritesOrder");
+        assertEquals(2, order.length());
+        assertEquals(jp, order.getLong(0));
+        assertEquals(url, order.getLong(1));
+        assertEquals("qr-reader-history-20261018.json", Export.fileName(java.time.LocalDate.of(2026, 10, 18)));
+    }
+
+    @Test public void exportFlowAuthGateAndPicker() throws Exception {
+        h.setProtected(wifi, true);
+        h.setMemo(url, "repo");
+        MainActivity m = main(MainActivity.TAB_SETTINGS);
+        // a long press on About & licenses (a normal tap still opens About)
+        assertTrue(m.findViewById(R.id.set_about).performLongClick());
+        AlertDialog d = Export.lastDialog;
+        assertTrue(d.isShowing());
+        assertEquals("Export history?", shadowOf(d).getTitle().toString());
+        String msg = ((TextView) d.findViewById(android.R.id.message)).getText().toString();
+        assertTrue(msg, msg.startsWith("10 codes will be saved") && msg.contains("1 protected code"));
+        shot(m, "settings-export-confirm", null, d);
+        // protected codes: authentication first; refused -> no picker
+        Auth.testResult = false;
+        d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
+        assertEquals(1, Auth.testPrompts);
+        assertNull(shadowOf(m).getNextStartedActivityForResult());
+        // accepted -> the system "create document" picker with the file name; no storage permission
+        m.findViewById(R.id.set_about).performLongClick();
+        Auth.testResult = true;
+        Export.lastDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
+        assertEquals(2, Auth.testPrompts);
+        org.robolectric.shadows.ShadowActivity.IntentForResult pick = shadowOf(m).getNextStartedActivityForResult();
+        assertEquals(Intent.ACTION_CREATE_DOCUMENT, pick.intent.getAction());
+        assertEquals("application/json", pick.intent.getType());
+        assertEquals(Export.fileName(java.time.LocalDate.now()), pick.intent.getStringExtra(Intent.EXTRA_TITLE));
+        assertTrue(pick.intent.getStringExtra(Intent.EXTRA_TITLE).matches("qr-reader-history-\\d{8}\\.json"));
+        assertTrue("the picker is not leaving the app", App.get().holdForeground);
+        String[] perms = m.getPackageManager().getPackageInfo(m.getPackageName(), android.content.pm.PackageManager.GET_PERMISSIONS).requestedPermissions;
+        for (String p : perms) assertTrue(p, !p.contains("STORAGE") && !p.contains("INTERNET"));
+        // inside the window a second export asks nothing
+        m.findViewById(R.id.set_about).performLongClick();
+        Export.lastDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
+        assertEquals(2, Auth.testPrompts);
+        assertNotNull(shadowOf(m).getNextStartedActivityForResult());
+        // the picked file gets the JSON
+        java.io.File out = new java.io.File(OUT.getParentFile(), "export-test.json");
+        out.delete();
+        Uri uri = Uri.fromFile(out);
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        shadowOf(m.getContentResolver()).registerOutputStream(uri, bytes);
+        shadowOf(m).receiveResult(pick.intent, Activity.RESULT_OK, new Intent().setData(uri));
+        ShadowLooper.idleMainLooper();
+        assertTrue(!App.get().holdForeground);
+        org.json.JSONObject o = new org.json.JSONObject(bytes.toString("UTF-8"));
+        assertEquals(10, o.getJSONArray("items").length());
+        assertEquals("0.7.0", o.getString("appVersion"));
+        assertEquals("Exported 10 codes", org.robolectric.shadows.ShadowToast.getTextOfLatestToast());
+        // nothing protected: no prompt at all
+        h.setProtected(wifi, false);
+        Auth.lockNow();
+        m.findViewById(R.id.set_about).performLongClick();
+        Export.lastDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
+        assertEquals(2, Auth.testPrompts);
+        assertNotNull(shadowOf(m).getNextStartedActivityForResult());
+        // an empty history: nothing to export
+        h.clear();
+        Export.lastDialog = null;
+        m.findViewById(R.id.set_about).performLongClick();
+        assertNull(Export.lastDialog);
+        assertEquals("Nothing to export", org.robolectric.shadows.ShadowToast.getTextOfLatestToast());
+    }
+
+    @Test public void historyKeepsLoadingOldFiles() throws Exception {
+        // the fixture's history written in the 0.6.0 format (QRH3) loads with the new fields at their defaults
+        String v060 = "QRH3\t4\n1\t0\t0\t100\t3\t\tName\tsecret\n2\t0\t0\t200\t0\tEAN-13\t\t4006381333931\n3\t0\t0\t300\t1\t\t\tfav\n";
+        History p = History.parse(v060);
+        assertEquals(3, p.size());
+        assertTrue(p.get(1).prot && p.get(1).fav);
+        assertEquals("Name", p.get(1).name);
+        assertNull(p.get(1).memo);
+        assertTrue(!p.get(3).created);
+        assertEquals(List.of(3L, 1L), p.favoriteOrder());
+    }
 }

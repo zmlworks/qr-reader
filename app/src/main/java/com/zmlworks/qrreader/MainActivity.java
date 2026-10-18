@@ -39,6 +39,7 @@ public final class MainActivity extends BaseActivity {
         for (int i = 0; i < 3; i++) { final int t = i; tabs[i].setOnClickListener(v -> select(t)); }
         findViewById(R.id.btn_scan_top).setOnClickListener(v -> scan());
         findViewById(R.id.btn_jump).setOnClickListener(v -> historyPage.jumpToDate());
+        findViewById(R.id.btn_search).setOnClickListener(v -> historyPage.toggleSearch());
         snack = new Snack(root);
         historyPage = new HistoryPage(this, pages[0]);
         createPage = new CreatePage(this, pages[1]);
@@ -87,15 +88,49 @@ public final class MainActivity extends BaseActivity {
         }
         title.setText(t == TAB_HISTORY ? R.string.history : t == TAB_CREATE ? R.string.create : R.string.settings);
         topBar.setVisibility(t == TAB_CREATE ? View.GONE : View.VISIBLE);
-        // History only: Settings starts with Clear all history, so no "scan" button right above it (mis-taps).
-        // INVISIBLE there (not GONE) keeps their slots, so the unlock pill stays exactly where it is on History.
-        for (int id : new int[]{R.id.btn_scan_top, R.id.btn_jump})
-            findViewById(id).setVisibility(t == TAB_HISTORY ? View.VISIBLE : View.INVISIBLE);
+        renderTopButtons();
+        if (t != TAB_HISTORY) historyPage.hideKeyboard();
         ((UnlockPill) findViewById(R.id.unlock_pill)).setAllowed(t != TAB_CREATE);   // History and Settings
         renderBars();
         if (t == TAB_HISTORY) historyPage.refresh();
         if (t == TAB_SETTINGS) settingsPage.refresh();
         if (t != TAB_CREATE) { createPage.hideKeyboard(); createPage.setBright(false, false); }
+    }
+
+    /**
+     * Top bar: [title] [Unlocked pill] [jump] [search] [scan]. Scan is on History and Settings (back on Settings since
+     * 0.7.0); jump only on History's All tab (Favorites are in manual order), search only on History. A hidden button is
+     * INVISIBLE (not GONE), so the slots, and with them the unlock pill, stay exactly in place on every tab.
+     */
+    void renderTopButtons() {
+        boolean history = tab == TAB_HISTORY;
+        findViewById(R.id.btn_scan_top).setVisibility(View.VISIBLE);
+        findViewById(R.id.btn_jump).setVisibility(history && !historyPage.favOnly() ? View.VISIBLE : View.INVISIBLE);
+        findViewById(R.id.btn_search).setVisibility(history ? View.VISIBLE : View.INVISIBLE);
+    }
+
+    @SuppressWarnings("deprecation")   // predictive back is not enabled; this only closes the search field first
+    @Override public void onBackPressed() {
+        if (tab == TAB_HISTORY && historyPage.searchOpen()) { historyPage.closeSearch(); return; }
+        super.onBackPressed();
+    }
+
+    @Override protected void onStart() {
+        super.onStart();
+        historyPage.onStart();
+    }
+
+    @Override protected void onStop() {
+        historyPage.onStop();
+        super.onStop();
+    }
+
+    @Override protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req == Export.REQ_EXPORT) {
+            App.get().holdForeground = false;
+            if (res == RESULT_OK && data != null && data.getData() != null) Export.write(this, data.getData());
+        }
     }
 
     /** Is the keyboard open? (then Create hides the tabs) */

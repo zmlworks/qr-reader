@@ -100,5 +100,17 @@
             android:layout_marginStart="8dp"
             android:importantForAccessibility="no"
             android:src="@drawable/ic_star_filled" />
+
+        <!-- Favorites tab: drag to reorder (only this handle starts a drag) -->
+        <ImageView
+            android:id="@+id/row_handle"
+            android:layout_width="44dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="-8dp"
+            android:contentDescription="@string/reorder"
+            android:scaleType="center"
+            android:src="@drawable/ic_drag_handle"
+            android:visibility="gone" />
     </LinearLayout>
 </FrameLayout>

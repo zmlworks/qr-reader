@@ -19,9 +19,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * One code: optional name (pen), the full text (a URL is a link: tap = browser, after a confirmation if that setting is
- * on), then one action per row: type-specific ones (call, mail, SMS, map, Wi-Fi) and share / copy / web search /
- * create QR. Lock (protection), name, favourite and delete (with UNDO in the history) are in the top bar.
+ * One code: optional name (pen), the QR code itself for codes made on the Create page, the full text (a URL is a link:
+ * tap = browser, after a confirmation if that setting is on) with a small Copy button right under it, then one action
+ * per row: type-specific ones (call, mail, SMS, map, Wi-Fi) and share / web search / create QR, then the memo (saved as
+ * you type). Lock (protection), name, favourite and delete (with UNDO in the history) are in the top bar.
  * A protected item shows nothing until the user authenticates ({@link Auth}); its window is FLAG_SECURE (no
  * screenshots, blank in Recents).
  */
@@ -34,6 +35,12 @@ public final class DetailActivity extends BaseActivity {
     private ImageButton lock;
     /** authenticated on this page (a protected item stays readable here until the page closes) */
     private boolean unlocked, prompted;
+    private EditText memo;
+    /** the memo is being filled in by bind(), not typed */
+    private boolean settingMemo;
+    private final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable saveMemo = this::flushMemo;
+    static final long MEMO_SAVE_DELAY_MS = 400;
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -44,11 +51,34 @@ public final class DetailActivity extends BaseActivity {
         lock = findViewById(R.id.btn_lock);
         findViewById(R.id.btn_back).setOnClickListener(v -> finish());
         findViewById(R.id.btn_unlock).setOnClickListener(v -> unlock());
+        memo = findViewById(R.id.memo);
+        memo.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int st, int c, int af) { }
+            @Override public void onTextChanged(CharSequence s, int st, int b, int c) { }
+            @Override public void afterTextChanged(android.text.Editable s) {
+                if (settingMemo) return;
+                ui.removeCallbacks(saveMemo);
+                ui.postDelayed(saveMemo, MEMO_SAVE_DELAY_MS);
+            }
+        });
         bind();
+    }
+
+    /** Saves the memo now (also on leaving the page; blank = no memo). */
+    void flushMemo() {
+        ui.removeCallbacks(saveMemo);
+        if (e == null || memo == null || findViewById(R.id.content).getVisibility() != View.VISIBLE) return;
+        App.get().history().setMemo(e.id, memo.getText().toString());
+    }
+
+    @Override protected void onPause() {
+        flushMemo();
+        super.onPause();
     }
 
     @Override protected void onNewIntent(Intent i) {
         super.onNewIntent(i);
+        flushMemo();
         setIntent(i);
         unlocked = prompted = false;
         bind();
@@ -67,7 +97,8 @@ public final class DetailActivity extends BaseActivity {
             findViewById(R.id.content).setVisibility(View.VISIBLE);
             findViewById(R.id.locked).setVisibility(View.GONE);
             findViewById(R.id.name).setVisibility(View.GONE);
-            for (int id : new int[]{R.id.btn_lock, R.id.btn_name, R.id.btn_fav, R.id.btn_delete, R.id.actions})
+            for (int id : new int[]{R.id.btn_lock, R.id.btn_name, R.id.btn_fav, R.id.btn_delete, R.id.actions, R.id.act_copy,
+                    R.id.memo, R.id.memo_label, R.id.detail_qr})
                 findViewById(id).setVisibility(View.GONE);
             return;
         }
@@ -96,8 +127,14 @@ public final class DetailActivity extends BaseActivity {
             for (int i = 0; i < ch.size(); i++) if (ch.get(i).id == e.id) idx = i + 1;
             m += "\n" + getString(R.string.code_n_of_m, idx, ch.size());
         }
+        if (e.created) m += " · " + getString(R.string.created_marker);
         meta.setText(m);
+        QrView qr = findViewById(R.id.detail_qr);
+        QrGen.Qr code = e.created ? QrGen.encode(s) : null;
+        qr.setQr(code);
+        qr.setVisibility(code != null ? View.VISIBLE : View.GONE);
         text.setText(s);
+        renderMemo();
         boolean link = t.kind == ContentType.Kind.URL;
         text.setTextColor(getColor(link ? R.color.link : R.color.text));
         text.setPaintFlags(link ? text.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG : text.getPaintFlags() & ~Paint.UNDERLINE_TEXT_FLAG);
@@ -157,6 +194,20 @@ public final class DetailActivity extends BaseActivity {
         extraRows.add(r);
     }
 
+    /** the memo field; a protected item's memo is kept out of the keyboard's learning */
+    private void renderMemo() {
+        String want = e.memo == null ? "" : e.memo;
+        int type = android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES | (e.prot ? android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS : 0);
+        if (memo.getInputType() != type) memo.setInputType(type);
+        memo.setImeOptions(e.prot ? android.view.inputmethod.EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING : 0);
+        if (!want.equals(memo.getText().toString())) {
+            settingMemo = true;
+            memo.setText(want);
+            settingMemo = false;
+        }
+    }
+
     private void renderName() {
         TextView n = findViewById(R.id.name);
         n.setVisibility(e.name == null ? View.GONE : View.VISIBLE);
@@ -186,6 +237,7 @@ public final class DetailActivity extends BaseActivity {
     /** "Lock now" (the pill): an open protected page locks at once */
     private final Runnable onAuth = () -> {
         if (e != null && e.prot && unlocked && !Auth.recentlyOk() && !isFinishing()) {
+            flushMemo();
             unlocked = false;
             prompted = true;   // no automatic prompt: the Unlock button is there
             bind();
@@ -239,6 +291,8 @@ public final class DetailActivity extends BaseActivity {
         else getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
     }
 
+    QrView qrForTest() { return findViewById(R.id.detail_qr); }
+
     boolean lockedForTest() { return findViewById(R.id.locked).getVisibility() == View.VISIBLE; }
 
     private void renderFav() {
@@ -247,6 +301,7 @@ public final class DetailActivity extends BaseActivity {
     }
 
     private void delete() {
+        flushMemo();
         long id = e.id;
         App.get().pendingUndo = App.get().history().remove(id);
         startActivity(new Intent(this, MainActivity.class)

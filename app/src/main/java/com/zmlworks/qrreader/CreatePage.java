@@ -12,7 +12,9 @@ import android.widget.TextView;
 
 /**
  * Create tab: the QR at the top is re-encoded on every character (on a worker thread, newest text wins); the input
- * sits right under it. Mode, EC level (M) and version are chosen automatically by {@link QrGen}.
+ * sits right under it, with a small "Save to history" button in between (adds a "Created" item; blank text is ignored and
+ * saving the same text twice in a row only says "Already saved"). Mode, EC level (M) and version are chosen
+ * automatically by {@link QrGen}.
  * Tapping the QR toggles the screen brightness between maximum and normal (with a one-second hint); leaving the page
  * or the app restores normal brightness.
  */
@@ -20,7 +22,7 @@ final class CreatePage {
     private final MainActivity a;
     private final EditText input;
     private final QrView qr;
-    private final TextView info, empty, hint;
+    private final TextView info, empty, hint, save;
     private boolean bright;
     private final Runnable hideHint;
     private final HandlerThread worker = new HandlerThread("qr-encode");
@@ -35,6 +37,8 @@ final class CreatePage {
         info = root.findViewById(R.id.qr_info);
         empty = root.findViewById(R.id.qr_empty);
         hint = root.findViewById(R.id.qr_hint);
+        save = root.findViewById(R.id.save_history);
+        save.setOnClickListener(v -> saveToHistory());
         hideHint = () -> hint.animate().alpha(0).setDuration(150).withEndAction(() -> hint.setVisibility(View.GONE)).start();
         root.findViewById(R.id.qr_box).setOnClickListener(v -> setBright(!bright, true));
         worker.start();
@@ -42,9 +46,24 @@ final class CreatePage {
         input.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int st, int c, int af) { }
             @Override public void onTextChanged(CharSequence s, int st, int b, int c) { }
-            @Override public void afterTextChanged(Editable s) { encode(s.toString()); }
+            @Override public void afterTextChanged(Editable s) { encode(s.toString()); renderSave(); }
         });
         render(null, "");
+        renderSave();
+    }
+
+    private void renderSave() {
+        boolean on = !input.getText().toString().trim().isEmpty();
+        save.setEnabled(on);
+        save.setAlpha(on ? 1f : 0.4f);
+    }
+
+    /** "Save to history": the current text as a Created item. */
+    int saveToHistory() {
+        int r = App.get().history().saveCreated(input.getText().toString(), System.currentTimeMillis());
+        if (r == History.SAVED) android.widget.Toast.makeText(a, R.string.saved_to_history, android.widget.Toast.LENGTH_SHORT).show();
+        else if (r == History.SAVE_DUPLICATE) android.widget.Toast.makeText(a, R.string.already_saved, android.widget.Toast.LENGTH_SHORT).show();
+        return r;
     }
 
     void setText(String t) {

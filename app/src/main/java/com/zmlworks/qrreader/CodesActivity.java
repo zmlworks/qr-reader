@@ -18,6 +18,9 @@ public final class CodesActivity extends BaseActivity {
     private List<History.Entry> items = new ArrayList<>();
     private final Adapter adapter = new Adapter();
     private Snack snack;
+    private SwipeListView list;
+    /** the authentication window opened, was ended or ran out: show / blur the protected codes */
+    private final Runnable onAuth = this::refresh;
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -28,17 +31,27 @@ public final class CodesActivity extends BaseActivity {
         findViewById(R.id.btn_back).setOnClickListener(v -> finish());
         findViewById(R.id.btn_copy_all).setOnClickListener(v -> Actions.copy(this, App.get().history().groupText(groupId)));
         findViewById(R.id.btn_share_all).setOnClickListener(v -> Actions.share(this, App.get().history().groupText(groupId)));
-        SwipeListView list = findViewById(R.id.list);
+        list = findViewById(R.id.list);
         list.setAdapter(adapter);
         list.setOnItemClickListener((p, v, pos, id) ->
                 startActivity(new Intent(this, DetailActivity.class).putExtra(DetailActivity.EXTRA_ID, items.get(pos).id)));
         list.setCallback(new SwipeListView.Callback() {
             @Override public void onSwipeRight(int pos) {
                 if (pos < 0 || pos >= items.size()) return;
-                final History.Removal r = App.get().history().remove(items.get(pos).id);
-                App.get().pendingUndo = r;
-                refresh();
-                snack.show(getString(R.string.deleted), () -> { App.get().history().undo(r); refresh(); });
+                final History.Entry e = items.get(pos);
+                Runnable go = () -> {
+                    if (App.get().history().get(e.id) == null) return;
+                    final History.Removal r = App.get().history().remove(e.id);
+                    App.get().pendingUndo = r;
+                    refresh();
+                    snack.show(getString(R.string.deleted), () -> { App.get().history().undo(r); refresh(); });
+                };
+                // a protected code: the same check as opening it (60 s window)
+                if (e.prot) Auth.require(CodesActivity.this, true, getString(R.string.auth_delete_title), go, CodesActivity.this::refresh);
+                else go.run();
+            }
+            @Override public boolean swipeRightSlidesOut(int pos) {
+                return pos < 0 || pos >= items.size() || !HistoryPage.needsAuthToDelete(items.get(pos));
             }
             @Override public void onSwipeLeft(int pos) {
                 if (pos < 0 || pos >= items.size()) return;
@@ -54,6 +67,9 @@ public final class CodesActivity extends BaseActivity {
         refresh();
     }
 
+    @Override protected void onStart() { super.onStart(); Auth.addListener(onAuth); }
+    @Override protected void onStop() { Auth.removeListener(onAuth); list.removeCallbacks(onAuth); super.onStop(); }
+
     private void refresh() {
         History h = App.get().history();
         items = h.children(groupId);
@@ -65,6 +81,9 @@ public final class CodesActivity extends BaseActivity {
         sub.setText(g == null ? "" : Actions.longTime(g.time) + " · " + getResources().getQuantityString(R.plurals.n_codes, n, n));
         findViewById(R.id.empty).setVisibility(n == 0 ? View.VISIBLE : View.GONE);
         adapter.notifyDataSetChanged();
+        list.removeCallbacks(onAuth);
+        long left = Auth.remainingMs();
+        if (left > 0) list.postDelayed(onAuth, left + 20);   // re-blur the moment the window runs out
     }
 
     private final class Adapter extends BaseAdapter {

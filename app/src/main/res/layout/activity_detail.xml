@@ -89,6 +89,16 @@
                 android:textColor="@color/dim"
                 android:textSize="13sp" />
 
+            <!-- a code made on the Create page: its QR code first -->
+            <com.zmlworks.qrreader.QrView
+                android:id="@+id/detail_qr"
+                android:layout_width="220dp"
+                android:layout_height="220dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="12dp"
+                android:contentDescription="@string/created_qr"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/text"
                 android:layout_width="match_parent"
@@ -99,11 +109,28 @@
                 android:textColor="@color/text"
                 android:textSize="18sp" />
 
+            <!-- copy, right under the content (no longer one of the action rows) -->
+            <TextView
+                android:id="@+id/act_copy"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_gravity="end"
+                android:layout_marginTop="2dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:drawableStart="@drawable/ic_copy_small"
+                android:drawablePadding="6dp"
+                android:gravity="center_vertical"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="@string/copy"
+                android:textColor="@color/accent"
+                android:textSize="14sp" />
+
             <TextView
                 android:id="@+id/fields"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="4dp"
                 android:background="@drawable/card_bg"
                 android:lineSpacingExtra="4dp"
                 android:padding="18dp"
@@ -117,7 +144,7 @@
                 android:id="@+id/actions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="10dp"
                 android:background="@drawable/card_bg"
                 android:divider="@drawable/row_divider"
                 android:orientation="vertical"
@@ -128,12 +155,6 @@
                     style="@style/ActionRow"
                     android:drawableStart="@drawable/ic_share"
                     android:text="@string/share_text" />
-
-                <TextView
-                    android:id="@+id/act_copy"
-                    style="@style/ActionRow"
-                    android:drawableStart="@drawable/ic_copy"
-                    android:text="@string/copy_clipboard" />
 
                 <TextView
                     android:id="@+id/act_search"
@@ -147,6 +168,34 @@
                     android:drawableStart="@drawable/ic_qr"
                     android:text="@string/create_this_qr" />
             </LinearLayout>
+
+            <!-- memo: saved as you type -->
+            <TextView
+                android:id="@+id/memo_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:paddingBottom="6dp"
+                android:text="@string/memo"
+                android:textColor="@color/dim"
+                android:textSize="13sp" />
+
+            <EditText
+                android:id="@+id/memo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/card_bg"
+                android:gravity="top|start"
+                android:hint="@string/memo_hint"
+                android:importantForAutofill="no"
+                android:inputType="textMultiLine|textCapSentences"
+                android:minHeight="120dp"
+                android:padding="16dp"
+                android:textColor="@color/text"
+                android:textColorHint="@color/dim"
+                android:textSize="16sp" />
         </LinearLayout>
     </ScrollView>
 

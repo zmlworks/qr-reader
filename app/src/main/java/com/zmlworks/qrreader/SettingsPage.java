@@ -15,8 +15,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Settings tab: clear history (with or without favorites) at the top, then lefty, vibrate, dark mode, confirm before
- * browser, search URL, the "Scan non-QR once" row, about & licenses.
+ * Settings tab: clear history (only its title is tappable; the two checkboxes on the right are separate) at the top,
+ * then lefty, vibrate, dark mode, date format, confirm before browser, search URL (shown without https://), the
+ * "Scan non-QR once" row, about &amp; licenses (a long press exports the history, see {@link Export}).
  */
 final class SettingsPage {
     static final String REPO_URL = "https://github.com/zmlworks/qr-reader";
@@ -51,6 +52,7 @@ final class SettingsPage {
         root.findViewById(R.id.set_engine).setOnClickListener(v -> editTemplate());
         root.findViewById(R.id.set_clear).setOnClickListener(v -> confirmClear());
         root.findViewById(R.id.set_about).setOnClickListener(v -> about());
+        root.findViewById(R.id.set_about).setOnLongClickListener(v -> { Export.start(a); return true; });   // hidden: export the history
         root.findViewById(R.id.set_once).setOnClickListener(v -> a.scanNonQr());
     }
 
@@ -74,7 +76,10 @@ final class SettingsPage {
 
     private int dp(int v) { return (int) (v * a.getResources().getDisplayMetrics().density); }
 
-    /** URL template editor: any http(s) URL with %s; empty = back to Google. */
+    /**
+     * URL template editor. No scheme anywhere: https:// is always used, and one typed or pasted is removed at once.
+     * Empty is invalid (OK is disabled); the Google button puts the default back.
+     */
     void editTemplate() {
         final EditText et = new EditText(a);
         et.setId(R.id.template_input);
@@ -86,18 +91,34 @@ final class SettingsPage {
         LinearLayout box = new LinearLayout(a);
         box.setPadding(dp(20), dp(10), dp(20), 0);
         box.addView(et, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-        AlertDialog d = new AlertDialog.Builder(a).setTitle(R.string.search_engine).setMessage(R.string.custom_url_help).setView(box)
+        final AlertDialog d = new AlertDialog.Builder(a).setTitle(R.string.search_engine).setMessage(R.string.custom_url_help).setView(box)
                 .setPositiveButton(R.string.ok, null).setNegativeButton(R.string.cancel, null)
                 .setNeutralButton(R.string.reset_google, (x, w) -> { p.setSearchTemplate(SearchUrl.DEFAULT_TEMPLATE); refresh(); })
                 .create();
-        d.setOnShowListener(x -> d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String t = et.getText().toString().trim();
-            if (t.isEmpty()) t = SearchUrl.DEFAULT_TEMPLATE;
-            if (!SearchUrl.validTemplate(t)) { et.setError(a.getString(R.string.custom_url_invalid)); return; }
-            p.setSearchTemplate(t);
-            refresh();
-            d.dismiss();
-        }));
+        et.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int st, int c, int af) { }
+            @Override public void onTextChanged(CharSequence s, int st, int b, int c) { }
+            @Override public void afterTextChanged(android.text.Editable s) {
+                if (SearchUrl.hasScheme(s.toString())) {   // typed or pasted "https://…": the scheme goes
+                    String t = SearchUrl.strip(s.toString());
+                    s.replace(0, s.length(), t);
+                    return;   // called again with the new text
+                }
+                android.widget.Button ok = d.getButton(AlertDialog.BUTTON_POSITIVE);
+                if (ok != null) ok.setEnabled(!s.toString().trim().isEmpty());
+            }
+        });
+        d.setOnShowListener(x -> {
+            android.widget.Button ok = d.getButton(AlertDialog.BUTTON_POSITIVE);
+            ok.setEnabled(!et.getText().toString().trim().isEmpty());
+            ok.setOnClickListener(v -> {
+                String t = SearchUrl.strip(et.getText().toString());
+                if (t.isEmpty() || !SearchUrl.validTemplate(t)) { et.setError(a.getString(R.string.custom_url_invalid)); return; }
+                p.setSearchTemplate(t);
+                refresh();
+                d.dismiss();
+            });
+        });
         d.show();
         lastDialog = d;
     }

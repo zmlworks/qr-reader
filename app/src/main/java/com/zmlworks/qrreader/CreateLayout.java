@@ -7,7 +7,7 @@ import android.view.ViewGroup;
 
 /**
  * Create tab layout: child 0 (the QR) is a square fixed at the top, as large as the width and the height left over
- * by the other children allow; the other children (input, info line) follow right under it. With the keyboard open
+ * by the other children allow; the other children (save button, input, info line) follow right under it, centred. With the keyboard open
  * (adjustResize) the square simply shrinks, so the QR and the input both stay visible.
  */
 public final class CreateLayout extends ViewGroup {
@@ -25,7 +25,8 @@ public final class CreateLayout extends ViewGroup {
         for (int i = 1; i < getChildCount(); i++) {
             View c = getChildAt(i);
             if (c.getVisibility() == GONE) continue;
-            c.measure(MeasureSpec.makeMeasureSpec(iw, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(Math.max(0, ih / 2), MeasureSpec.AT_MOST));
+            boolean wrap = c.getLayoutParams() != null && c.getLayoutParams().width == LayoutParams.WRAP_CONTENT;   // e.g. the small save button
+            c.measure(MeasureSpec.makeMeasureSpec(iw, wrap ? MeasureSpec.AT_MOST : MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(Math.max(0, ih / 2), MeasureSpec.AT_MOST));
             rest += c.getMeasuredHeight() + gap;
         }
         int side = Math.max(0, Math.min(iw, ih - rest));

@@ -40,10 +40,17 @@ final class Prefs {
     boolean confirmBrowser() { return p.getBoolean("confirm_browser", true); }
     void setConfirmBrowser(boolean v) { p.edit().putBoolean("confirm_browser", v).apply(); }
 
-    /** Search URL template with %s (default Google; a 0.1.0 engine choice is carried over). */
+    /**
+     * Search URL template with %s, without a scheme (https:// is always used). Templates saved by 0.2.0-0.6.0
+     * ("https://…") are rewritten once in the new form; a 0.1.0 engine choice is carried over.
+     */
     String searchTemplate() {
         String t = p.getString("search_template", null);
-        if (t != null) return t;
+        if (t != null) {
+            String n = SearchUrl.normalize(t);
+            if (!n.equals(t)) p.edit().putString("search_template", n).apply();
+            return n;
+        }
         if (p.contains("search_engine")) {
             t = SearchUrl.migrate(p.getString("search_engine", null), p.getString("search_custom", ""));
             p.edit().putString("search_template", t).remove("search_engine").remove("search_custom").apply();
@@ -51,7 +58,8 @@ final class Prefs {
         }
         return SearchUrl.DEFAULT_TEMPLATE;
     }
-    void setSearchTemplate(String v) { p.edit().putString("search_template", v).apply(); }
+    /** stores the scheme-less form */
+    void setSearchTemplate(String v) { p.edit().putString("search_template", SearchUrl.strip(v)).apply(); }
 
     /** how many times the "swipe to zoom" hint was shown (shown on the first 3 launches) */
     int zoomHints() { return p.getInt("zoom_hints", 0); }

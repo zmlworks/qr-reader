@@ -157,7 +157,7 @@ public class HistoryTest {
         assertTrue(p.get(1).fav);
         assertEquals(null, p.get(1).name);
         assertEquals("child", p.children(2).get(0).text);
-        assertTrue(p.serialize().startsWith("QRH3\t4\n"));
+        assertTrue(p.serialize().startsWith("QRH4\t4\t\n"));
     }
 
     @Test public void readsVersion020Files() {
@@ -242,5 +242,157 @@ public class HistoryTest {
         assertEquals(1, h.size());
         h.clear(true, true);
         assertEquals(0, h.size());
+    }
+
+    // ---- 0.7.0 ----
+
+    /** a 0.3.0-0.6.0 file (QRH3) loads; the new fields default to no memo, not created, favourites newest first */
+    @Test public void readsVersion030To060Files() {
+        String qrh3 = "QRH3\t7\n"
+                + "1\t0\t0\t100\t1\t\tSticker\thttps://a\n"          // favourite, named
+                + "2\t0\t0\t200\t2\tEAN-13\t\t4006381333931\n"       // protected, EAN-13
+                + "3\t0\t1\t300\t0\t\t\t\n"                          // group
+                + "4\t3\t2\t301\t3\t\t\tchild\\tx\n"               // favourite + protected child
+                + "6\t0\t0\t400\t1\t\t\tnewer fav\n";
+        History p = History.parse(qrh3);
+        assertEquals(5, p.size());
+        assertEquals("Sticker", p.get(1).name);
+        assertTrue(p.get(1).fav);
+        assertTrue(p.get(2).prot);
+        assertEquals("EAN-13", p.get(2).format);
+        assertEquals("child\tx", p.get(4).text);
+        assertTrue(p.get(4).fav && p.get(4).prot);
+        for (History.Entry e : p.rawEntries()) {
+            assertNull(e.memo);
+            assertFalse(e.created);
+        }
+        assertEquals("favourites newest first until reordered", List.of(p.get(6), p.get(4), p.get(1)), p.favorites());
+        assertEquals(7, p.addSingle("next", 500).id);
+        String out = p.serialize();
+        assertTrue(out.startsWith("QRH4\t8\t\n"));
+        assertEquals(out, History.parse(out).serialize());
+    }
+
+    @Test public void memoPersistsAndClears() {
+        History h = new History();
+        History.Entry a = h.addSingle("code", 1);
+        int[] n = {0};
+        h.addListener(() -> n[0]++);
+        h.setMemo(a.id, "line 1\nline 2\twith tab \\ backslash");
+        assertEquals(1, n[0]);
+        h.setMemo(a.id, "line 1\nline 2\twith tab \\ backslash");   // unchanged: no save
+        assertEquals(1, n[0]);
+        History p = History.parse(h.serialize());
+        assertEquals("line 1\nline 2\twith tab \\ backslash", p.get(a.id).memo);
+        assertEquals(h.serialize(), p.serialize());
+        h.setMemo(a.id, "  \n ");
+        assertNull("blank = no memo", a.memo);
+        History.Entry g = h.newGroup(2);
+        h.setMemo(g.id, "x");
+        assertNull("groups have no memo", g.memo);
+        // a memo survives delete + UNDO
+        h.setMemo(a.id, "kept");
+        h.undo(h.remove(a.id));
+        assertEquals("kept", h.get(a.id).memo);
+    }
+
+    @Test public void createdItems() {
+        History h = new History();
+        assertEquals(History.SAVE_EMPTY, h.saveCreated("", 1));
+        assertEquals(History.SAVE_EMPTY, h.saveCreated("  \n ", 1));
+        assertEquals(History.SAVE_EMPTY, h.saveCreated(null, 1));
+        assertEquals(0, h.size());
+        assertEquals(History.SAVED, h.saveCreated("https://example.com", 10));
+        History.Entry c = h.topLevel().get(0);
+        assertTrue(c.created);
+        assertEquals(History.SINGLE, c.kind);
+        assertEquals("tapping twice", History.SAVE_DUPLICATE, h.saveCreated("https://example.com", 11));
+        assertEquals(1, h.size());
+        assertEquals(10, c.time);
+        assertEquals(History.SAVED, h.saveCreated("other", 12));
+        assertEquals("not the newest any more: a new item", History.SAVED, h.saveCreated("https://example.com", 13));
+        assertEquals(3, h.size());
+        // a scan of the same text is a scanned item, not merged into the created one (and vice versa)
+        History.Entry s = h.addSingle("https://example.com", 14);
+        assertFalse(s.created);
+        assertEquals(4, h.size());
+        assertEquals(History.SAVED, h.saveCreated("https://example.com", 15));
+        assertEquals(5, h.size());
+        History p = History.parse(h.serialize());
+        assertTrue(p.get(c.id).created);
+        assertFalse(p.get(s.id).created);
+    }
+
+    @Test public void searchFilterLockedAndUnlocked() {
+        History h = new History();
+        History.Entry url = h.addSingle("https://github.com/zmlworks/qr-reader", 1);
+        History.Entry named = h.addSingle("WIFI:S:Cafe;P:pw;;", 2);
+        h.setName(named.id, "Office Wi-Fi");
+        History.Entry memo = h.addSingle("plain", 3);
+        h.setMemo(memo.id, "Parking ticket for Tuesday");
+        History.Entry ean = h.addSingle("4006381333931", 4, "EAN-13");
+        History.Entry secret = h.addSingle("secret github token", 5);
+        h.setProtected(secret.id, true);
+        History.Entry g = h.newGroup(6);
+        h.addChild(g.id, "INV-001", 7);
+        History.Entry hiddenChild = h.addChild(g.id, "INV-SECRET-github", 8);
+        h.setProtected(hiddenChild.id, true);
+        List<History.Entry> all = h.topLevel();
+        assertSame("empty query: no filter", all, h.filter(all, "  ", false));
+        assertEquals("text, case-insensitive", List.of(url), h.filter(all, "GITHUB", false));
+        assertEquals("name", List.of(named), h.filter(all, "office", false));
+        assertEquals("memo", List.of(memo), h.filter(all, "tuesday", false));
+        assertEquals("format", List.of(ean), h.filter(all, "ean-13", false));
+        assertEquals("every word must match", List.of(memo), h.filter(all, "parking plain", false));
+        assertEquals(List.of(), h.filter(all, "parking github", false));
+        assertEquals("a group through its codes", List.of(g), h.filter(all, "inv-001", false));
+        // locked: protected codes never match and are counted as hidden, whatever the query
+        assertEquals(List.of(url), h.filter(all, "github", false));
+        assertEquals(2, h.protectedIn(all));
+        assertEquals(List.of(), h.filter(all, "secret", false));
+        // unlocked (authentication window): searched like the others
+        assertEquals(List.of(g, secret, url), h.filter(all, "github", true));
+        assertEquals(List.of(g, secret), h.filter(all, "secret", true));
+        // Favorites scope
+        h.setFavorite(secret.id, true);
+        h.setFavorite(url.id, true);
+        List<History.Entry> fav = h.favorites();
+        assertEquals(List.of(url), h.filter(fav, "github", false));
+        assertEquals(1, h.protectedIn(fav));
+        assertEquals(List.of(secret, url), h.filter(fav, "github", true));
+        assertTrue(h.hasProtected(g));
+        assertTrue(h.hasProtected(secret));
+        assertFalse(h.hasProtected(url));
+    }
+
+    @Test public void favoritesManualOrderPersists() {
+        History h = new History();
+        History.Entry a = h.addSingle("a", 1), b = h.addSingle("b", 2), c = h.addSingle("c", 3);
+        for (History.Entry e : List.of(a, b, c)) h.setFavorite(e.id, true);
+        assertEquals(List.of(c, b, a), h.favorites());
+        h.moveFavorite(0, 2);   // c to the bottom
+        assertEquals(List.of(b, a, c), h.favorites());
+        History p = History.parse(h.serialize());
+        assertEquals(List.of(b.id, a.id, c.id), p.favoriteOrder());
+        assertEquals(h.serialize(), p.serialize());
+        // a new favourite goes on top; the manual order of the others stays
+        History.Entry d = h.addSingle("d", 4);
+        h.setFavorite(d.id, true);
+        assertEquals(List.of(d, b, a, c), h.favorites());
+        // removing a favourite and UNDO puts it back in its place
+        History.Removal r = h.remove(a.id);
+        assertEquals(List.of(d, b, c), h.favorites());
+        h.undo(r);
+        assertEquals(List.of(d, b, a, c), h.favorites());
+        // unfavourite + favourite again = new, on top
+        h.setFavorite(c.id, false);
+        h.setFavorite(c.id, true);
+        assertEquals(List.of(c, d, b, a), h.favorites());
+        h.setFavoriteOrder(List.of(a.id, b.id, c.id, d.id));
+        assertEquals(List.of(a.id, b.id, c.id, d.id), History.parse(h.serialize()).favoriteOrder());
+        // bad positions are ignored
+        h.moveFavorite(-1, 2);
+        h.moveFavorite(0, 9);
+        assertEquals(List.of(a, b, c, d), h.favorites());
     }
 }

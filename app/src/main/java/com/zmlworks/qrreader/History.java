@@ -29,6 +29,10 @@ public final class History {
         public boolean prot;
         /** barcode format for non-QR codes, e.g. "EAN-13" (null = QR code) */
         public String format;
+        /** free note from the detail page (null = none) */
+        public String memo;
+        /** made on the Create page ("Save to history"), not scanned */
+        public boolean created;
 
         Entry(long id, long parent, int kind, long time, boolean fav, String text) {
             this.id = id; this.parent = parent; this.kind = kind; this.time = time; this.fav = fav; this.text = text;
@@ -49,6 +53,8 @@ public final class History {
     private final List<Entry> entries = new ArrayList<>();   // insertion order
     private long nextId = 1;
     private final List<Listener> listeners = new ArrayList<>();
+    /** manual order of the Favorites tab (ids; favourites not in it come first, newest first) */
+    private final List<Long> favOrder = new ArrayList<>();
 
     private static final Comparator<Entry> NEWEST_FIRST = (a, b) -> a.time != b.time ? Long.compare(b.time, a.time) : Long.compare(b.id, a.id);
     private static final Comparator<Entry> SCAN_ORDER = (a, b) -> a.time != b.time ? Long.compare(a.time, b.time) : Long.compare(a.id, b.id);
@@ -75,13 +81,30 @@ public final class History {
         List<Entry> top = topLevel();
         if (!top.isEmpty()) {
             Entry n = top.get(0);
-            if (n.kind == SINGLE && !n.prot && n.text.equals(text) && eq(n.format, format)) { n.time = Math.max(now, n.time); changed(); return n; }
+            if (n.kind == SINGLE && !n.prot && !n.created && n.text.equals(text) && eq(n.format, format)) { n.time = Math.max(now, n.time); changed(); return n; }
         }
         Entry e = new Entry(nextId++, 0, SINGLE, now, false, text);
         e.format = format;
         entries.add(e);
         changed();
         return e;
+    }
+
+    /** "Save to history" on the Create page: blank text or the same text as the newest saved item are ignored. */
+    public static final int SAVED = 0, SAVE_EMPTY = 1, SAVE_DUPLICATE = 2;
+
+    public int saveCreated(String text, long now) {
+        if (text == null || text.trim().isEmpty()) return SAVE_EMPTY;
+        List<Entry> top = topLevel();
+        if (!top.isEmpty()) {
+            Entry n = top.get(0);
+            if (n.kind == SINGLE && n.created && n.text.equals(text)) return SAVE_DUPLICATE;
+        }
+        Entry e = new Entry(nextId++, 0, SINGLE, now, false, text);
+        e.created = true;
+        entries.add(e);
+        changed();
+        return SAVED;
     }
 
     public Entry newGroup(long now) {
@@ -113,11 +136,47 @@ public final class History {
         return r;
     }
 
-    /** Favourite codes (singles and codes inside groups), newest first. */
+    /**
+     * Favourite codes (singles and codes inside groups) in the manual order of the Favorites tab. Until the first move
+     * (and for all favourites of 0.6.0 and older) the order is newest first; after that a new favourite goes on top.
+     */
     public List<Entry> favorites() {
-        List<Entry> r = new ArrayList<>();
-        for (Entry e : entries) if (e.fav && e.kind != GROUP) r.add(e);
-        r.sort(NEWEST_FIRST);
+        List<Entry> fresh = new ArrayList<>(), r = new ArrayList<>();
+        java.util.Map<Long, Entry> byId = new java.util.HashMap<>();
+        for (Entry e : entries) if (e.fav && e.kind != GROUP) byId.put(e.id, e);
+        java.util.Set<Long> placed = new java.util.HashSet<>();
+        for (Long id : favOrder) { Entry e = byId.get(id); if (e != null && placed.add(id)) r.add(e); }
+        for (Entry e : byId.values()) if (!placed.contains(e.id)) fresh.add(e);
+        fresh.sort(NEWEST_FIRST);
+        fresh.addAll(r);
+        return fresh;
+    }
+
+    /** Moves the favourite at `from` to `to` (positions in {@link #favorites()}) and keeps that as the manual order. */
+    public void moveFavorite(int from, int to) {
+        List<Entry> f = favorites();
+        if (from < 0 || from >= f.size() || to < 0 || to >= f.size() || from == to) return;
+        f.add(to, f.remove(from));
+        List<Long> ids = new ArrayList<>();
+        for (Entry e : f) ids.add(e.id);
+        setFavoriteOrder(ids);
+    }
+
+    /** Sets the manual favourites order (ids of favourites, top first). */
+    public void setFavoriteOrder(List<Long> ids) {
+        List<Long> old = new ArrayList<>(favOrder);
+        // ids of favourites that are not in the list (e.g. removed and waiting for UNDO) keep their old relative place at the end
+        java.util.Set<Long> given = new java.util.HashSet<>(ids);
+        favOrder.clear();
+        favOrder.addAll(ids);
+        for (Long id : old) if (!given.contains(id)) favOrder.add(id);
+        if (!old.equals(favOrder)) changed();
+    }
+
+    /** ids of the favourites in the order shown (for the export) */
+    public List<Long> favoriteOrder() {
+        List<Long> r = new ArrayList<>();
+        for (Entry e : favorites()) r.add(e.id);
         return r;
     }
 
@@ -137,7 +196,12 @@ public final class History {
 
     public void setFavorite(long id, boolean fav) {
         Entry e = get(id);
-        if (e != null && e.kind != GROUP && e.fav != fav) { e.fav = fav; changed(); }
+        if (e != null && e.kind != GROUP && e.fav != fav) {
+            e.fav = fav;
+            favOrder.remove(Long.valueOf(id));
+            if (fav && !favOrder.isEmpty()) favOrder.add(0, id);   // a new favourite goes on top of a manual order
+            changed();
+        }
     }
 
     /** Names a code (blank or null clears the name). */
@@ -151,10 +215,71 @@ public final class History {
         changed();
     }
 
+    /** Sets the memo of a code (blank or null clears it). */
+    public void setMemo(long id, String memo) {
+        Entry e = get(id);
+        if (e == null || e.kind == GROUP) return;
+        String m = memo == null || memo.trim().isEmpty() ? null : memo;
+        if (m == null ? e.memo == null : m.equals(e.memo)) return;
+        e.memo = m;
+        changed();
+    }
+
     /** Protects a code (not a group) or lifts the protection. */
     public void setProtected(long id, boolean on) {
         Entry e = get(id);
         if (e != null && e.kind != GROUP && e.prot != on) { e.prot = on; changed(); }
+    }
+
+    // ---------------- search ----------------
+
+    /** Lower-cased words of a query (empty = no filter). */
+    public static String[] words(String query) {
+        String q = query == null ? "" : query.trim().toLowerCase(java.util.Locale.ROOT);
+        return q.isEmpty() ? new String[0] : q.split("\\s+");
+    }
+
+    /** Every word is found in the text, name, memo or format of the code. */
+    public static boolean matches(Entry e, String[] words) {
+        StringBuilder b = new StringBuilder(e.text);
+        for (String f : new String[]{e.name, e.memo, e.format}) if (f != null) b.append('\n').append(f);
+        String hay = b.toString().toLowerCase(java.util.Locale.ROOT);
+        for (String w : words) if (!hay.contains(w)) return false;
+        return true;
+    }
+
+    /**
+     * The rows of `scope` (top-level rows or favourites) that match `query`. While locked, protected codes are never
+     * matched (a group matches through its unprotected codes only); `unlocked` = inside the authentication window.
+     */
+    public List<Entry> filter(List<Entry> scope, String query, boolean unlocked) {
+        String[] w = words(query);
+        if (w.length == 0) return scope;
+        List<Entry> r = new ArrayList<>();
+        for (Entry e : scope) {
+            if (e.kind == GROUP) {
+                for (Entry c : children(e.id)) if ((unlocked || !c.prot) && matches(c, w)) { r.add(e); break; }
+            } else if ((unlocked || !e.prot) && matches(e, w)) r.add(e);
+        }
+        return r;
+    }
+
+    /** Protected codes in `scope` (codes inside groups too): what a locked search leaves out, whatever they contain. */
+    public int protectedIn(List<Entry> scope) {
+        int n = 0;
+        for (Entry e : scope) {
+            if (e.kind == GROUP) { for (Entry c : children(e.id)) if (c.prot) n++; }
+            else if (e.prot) n++;
+        }
+        return n;
+    }
+
+    /** a group with protected codes (deleting it deletes them too) */
+    public boolean hasProtected(Entry e) {
+        if (e == null) return false;
+        if (e.kind != GROUP) return e.prot;
+        for (Entry c : children(e.id)) if (c.prot) return true;
+        return false;
     }
 
     private static boolean eq(String a, String b) { return a == null ? b == null : a.equals(b); }
@@ -226,16 +351,25 @@ public final class History {
     }
 
     // ---------------- persistence: one line per entry, tab separated, text escaped ----------------
-    // QRH3: id parent kind time flags format name text; flags: 1 = favourite, 2 = protected.
-    // Older files are still read: QRH2 (0.2.0: id parent kind time fav name text), QRH1 (0.1.0: no name).
+    // QRH4 (0.7.0): header "QRH4 nextId favOrder" (favOrder = comma-separated ids, may be empty);
+    //   lines: id parent kind time flags format name memo text; flags: 1 = favourite, 2 = protected, 4 = created.
+    // Older files are still read: QRH3 (0.3.0-0.6.0: no memo, no favourites order), QRH2 (0.2.0: id parent kind time fav
+    // name text), QRH1 (0.1.0: no name). New fields default to: no memo, not created, favourites newest first.
     public String serialize() {
-        StringBuilder b = new StringBuilder("QRH3\t").append(nextId).append('\n');
+        StringBuilder b = new StringBuilder("QRH4\t").append(nextId).append('\t');
+        java.util.Set<Long> live = new java.util.HashSet<>();
+        for (Entry e : entries) if (e.fav) live.add(e.id);
+        boolean first = true;
+        for (Long id : favOrder) if (live.contains(id)) { if (!first) b.append(','); b.append(id); first = false; }
+        b.append('\n');
         List<Entry> sorted = new ArrayList<>(entries);
         sorted.sort(Comparator.comparingLong(x -> x.id));
         for (Entry e : sorted) {
             b.append(e.id).append('\t').append(e.parent).append('\t').append(e.kind).append('\t').append(e.time)
-                    .append('\t').append((e.fav ? 1 : 0) | (e.prot ? 2 : 0)).append('\t').append(e.format == null ? "" : escape(e.format))
+                    .append('\t').append((e.fav ? 1 : 0) | (e.prot ? 2 : 0) | (e.created ? 4 : 0))
+                    .append('\t').append(e.format == null ? "" : escape(e.format))
                     .append('\t').append(e.name == null ? "" : escape(e.name))
+                    .append('\t').append(e.memo == null ? "" : escape(e.memo))
                     .append('\t').append(escape(e.text)).append('\n');
         }
         return b.toString();
@@ -245,10 +379,15 @@ public final class History {
         History h = new History();
         if (s == null || s.isEmpty()) return h;
         String[] lines = s.split("\n", -1);
-        int ver = lines[0].startsWith("QRH3\t") ? 3 : lines[0].startsWith("QRH2\t") ? 2 : lines[0].startsWith("QRH1\t") ? 1 : 0;
+        int ver = lines[0].startsWith("QRH4\t") ? 4 : lines[0].startsWith("QRH3\t") ? 3 : lines[0].startsWith("QRH2\t") ? 2
+                : lines[0].startsWith("QRH1\t") ? 1 : 0;
         if (ver == 0) return h;
-        int cols = ver == 3 ? 8 : ver == 2 ? 7 : 6;
-        try { h.nextId = Long.parseLong(lines[0].substring(5).trim()); } catch (NumberFormatException ignored) { }
+        int cols = ver == 4 ? 9 : ver == 3 ? 8 : ver == 2 ? 7 : 6;
+        String[] head = lines[0].split("\t", -1);
+        try { h.nextId = Long.parseLong(head[1].trim()); } catch (NumberFormatException | ArrayIndexOutOfBoundsException ignored) { }
+        if (ver >= 4 && head.length > 2) for (String id : head[2].split(",")) {
+            try { if (!id.trim().isEmpty()) h.favOrder.add(Long.parseLong(id.trim())); } catch (NumberFormatException ignored) { }
+        }
         long maxId = 0;
         for (int i = 1; i < lines.length; i++) {
             String[] f = lines[i].split("\t", cols);
@@ -258,8 +397,10 @@ public final class History {
                 Entry e = new Entry(Long.parseLong(f[0]), Long.parseLong(f[1]), Integer.parseInt(f[2]), Long.parseLong(f[3]),
                         (flags & 1) != 0, unescape(f[cols - 1]));
                 e.prot = ver >= 3 && (flags & 2) != 0;
+                e.created = ver >= 4 && (flags & 4) != 0;
                 if (ver >= 3 && !f[5].isEmpty()) e.format = unescape(f[5]);
-                if (ver >= 2 && !f[cols - 2].isEmpty()) e.name = unescape(f[cols - 2]);
+                if (ver >= 2 && !f[ver >= 4 ? 6 : cols - 2].isEmpty()) e.name = unescape(f[ver >= 4 ? 6 : cols - 2]);
+                if (ver >= 4 && !f[7].isEmpty()) e.memo = unescape(f[7]);
                 h.entries.add(e);
                 maxId = Math.max(maxId, e.id);
             } catch (NumberFormatException ignored) { }

@@ -35,16 +35,16 @@ final class Export {
     /** the last confirmation dialog (tests) */
     static AlertDialog lastDialog;
 
-    /** e.g. qr-reader-history-20261018.json */
-    static String fileName(LocalDate day) { return "qr-reader-history-" + day.format(DateTimeFormatter.BASIC_ISO_DATE) + ".json"; }
+    /** e.g. quiet-qr-history-20261018.json */
+    static String fileName(LocalDate day) { return "quiet-qr-history-" + day.format(DateTimeFormatter.BASIC_ISO_DATE) + ".json"; }
 
     private static Object orNull(String s) { return s == null ? JSONObject.NULL : s; }
 
     /** Every code (singles and codes of multi scans), the multi scans and the favourites order. */
     static JSONObject json(History h, String appVersion, long now, ZoneId zone) throws JSONException {
         JSONObject root = new JSONObject();
-        root.put("app", "Simple QR Reader");
-        root.put("package", "com.zmlworks.qrreader");
+        root.put("app", "quiet QR");
+        root.put("package", "com.zmlworks.quietqr");
         root.put("appVersion", appVersion);
         root.put("formatVersion", FORMAT_VERSION);
         root.put("exportedAt", iso(now, zone));

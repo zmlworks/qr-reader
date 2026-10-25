@@ -2,6 +2,12 @@
 <!-- dark: slate with a cool blue-violet tint (not pure black), cool greys, crisp 1 dp edges -->
 <resources>
     <color name="bg">#FF1E2028</color>
+    <color name="create_bg">#FF1E2028</color>
+    <color name="create_save">#FFC4B5FF</color>
+    <color name="create_text">#FFEEF0F7</color>
+    <color name="create_dim">#FFA5ABBD</color>
+    <color name="create_surface">#FF262A35</color>
+    <color name="create_line">#FF3A4054</color>
     <color name="surface">#FF262A35</color>
     <color name="surface2">#FF30354A</color>
     <color name="text">#FFEEF0F7</color>
@@ -13,4 +19,6 @@
     <color name="copy">#FF5E8FE6</color>
     <color name="snack">#FF363C52</color>
     <color name="link">#FF8DB4FF</color>
+    <color name="created">#FFB48CFF</color>
+    <color name="created_bg">#447B3FD4</color>
 </resources>

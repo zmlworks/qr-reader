@@ -43,7 +43,7 @@ public class SearchUrlTest {
     }
 
     /** templates stored by 0.2.0-0.6.0 ("https://…") are rewritten once without the scheme */
-    @Test public void migrationOfStoredTemplates() {
+    @Test public void normalizeStoredTemplates() {
         assertEquals("www.google.com/search?q=%s", SearchUrl.normalize("https://www.google.com/search?q=%s"));
         assertEquals("duckduckgo.com/?q=%s", SearchUrl.normalize("https://duckduckgo.com/?q=%s"));
         assertEquals("intranet/find?w=%s", SearchUrl.normalize("http://intranet/find?w=%s"));
@@ -53,15 +53,6 @@ public class SearchUrlTest {
         assertEquals(SearchUrl.DEFAULT_TEMPLATE, SearchUrl.normalize(null));
     }
 
-    @Test public void migrationFrom010() {
-        assertEquals(SearchUrl.DEFAULT_TEMPLATE, SearchUrl.migrate("google", ""));
-        assertEquals("duckduckgo.com/?q=%s", SearchUrl.migrate("duckduckgo", ""));
-        assertEquals("www.bing.com/search?q=%s", SearchUrl.migrate("bing", null));
-        assertEquals("search.yahoo.co.jp/search?p=%s", SearchUrl.migrate("yahoo_jp", ""));
-        assertEquals("example.com/?q=%s", SearchUrl.migrate("custom", " https://example.com/?q=%s "));
-        assertEquals(SearchUrl.DEFAULT_TEMPLATE, SearchUrl.migrate("custom", "bad"));
-        assertEquals(SearchUrl.DEFAULT_TEMPLATE, SearchUrl.migrate(null, null));
-    }
 
     @Test public void validation() {
         assertTrue(SearchUrl.validTemplate("example.com/?q=%s"));

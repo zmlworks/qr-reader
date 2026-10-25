@@ -97,7 +97,7 @@ public final class DetailActivity extends BaseActivity {
             findViewById(R.id.content).setVisibility(View.VISIBLE);
             findViewById(R.id.locked).setVisibility(View.GONE);
             findViewById(R.id.name).setVisibility(View.GONE);
-            for (int id : new int[]{R.id.btn_lock, R.id.btn_name, R.id.btn_fav, R.id.btn_delete, R.id.actions, R.id.act_copy,
+            for (int id : new int[]{R.id.btn_lock, R.id.btn_name, R.id.btn_fav, R.id.btn_delete, R.id.actions, R.id.copy_card, R.id.act_copy,
                     R.id.memo, R.id.memo_label, R.id.detail_qr})
                 findViewById(id).setVisibility(View.GONE);
             return;

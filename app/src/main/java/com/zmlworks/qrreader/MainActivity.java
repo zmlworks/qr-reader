@@ -7,7 +7,7 @@ import android.widget.TextView;
 
 /**
  * History / Create / Settings with bottom tabs. Back (or the scan icon in the top bar of History and Settings) returns
- * to the scanner. Create has no top bar, and the tabs hide while the keyboard is open, so the QR and the input fit.
+ * to the scanner. Create also shows the top bar (scan only); the tabs hide while the keyboard is open, so the QR and the input fit.
  */
 public final class MainActivity extends BaseActivity {
     static final String EXTRA_TAB = "tab", EXTRA_CREATE_TEXT = "create_text", EXTRA_UNDO = "undo", EXTRA_UNDO_DETAIL = "undo_detail";
@@ -87,7 +87,7 @@ public final class MainActivity extends BaseActivity {
             tabs[i].setSelected(i == t);
         }
         title.setText(t == TAB_HISTORY ? R.string.history : t == TAB_CREATE ? R.string.create : R.string.settings);
-        topBar.setVisibility(t == TAB_CREATE ? View.GONE : View.VISIBLE);
+        topBar.setVisibility(View.VISIBLE);
         renderTopButtons();
         if (t != TAB_HISTORY) historyPage.hideKeyboard();
         ((UnlockPill) findViewById(R.id.unlock_pill)).setAllowed(t != TAB_CREATE);   // History and Settings
@@ -98,9 +98,9 @@ public final class MainActivity extends BaseActivity {
     }
 
     /**
-     * Top bar: [title] [Unlocked pill] [jump] [search] [scan]. Scan is on History and Settings (back on Settings since
-     * 0.7.0); jump only on History's All tab (Favorites are in manual order), search only on History. A hidden button is
-     * INVISIBLE (not GONE), so the slots, and with them the unlock pill, stay exactly in place on every tab.
+     * Top bar: [title] [Unlocked pill] [jump] [search] [scan]. Scan is on History, Create, and Settings; jump only on
+     * History's All tab (Favorites are in manual order), search only on History. A hidden button is INVISIBLE (not GONE),
+     * so the slots, and with them the unlock pill, stay exactly in place on every tab.
      */
     void renderTopButtons() {
         boolean history = tab == TAB_HISTORY;

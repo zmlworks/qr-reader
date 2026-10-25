@@ -293,9 +293,18 @@ final class HistoryPage {
             if (d != null) ss.setSpan(new android.text.style.ImageSpan(d, android.text.style.ImageSpan.ALIGN_BOTTOM), 0, 1, 0);
             badge.setText(ss);
             badge.setContentDescription(c.getString(R.string.protected_title));
+            badge.setBackgroundResource(R.drawable.type_badge);
+            badge.setTextColor(c.getColor(R.color.accent));
+        } else if (e.created) {
+            badge.setText(c.getString(R.string.created_marker));
+            badge.setContentDescription(c.getString(R.string.created_marker));
+            badge.setBackgroundResource(R.drawable.created_badge);
+            badge.setTextColor(c.getColor(R.color.created));
         } else {
             badge.setText(e.format != null ? e.format : ContentType.parse(e.text).label());
             badge.setContentDescription(null);
+            badge.setBackgroundResource(R.drawable.type_badge);
+            badge.setTextColor(c.getColor(R.color.accent));
         }
         Obscured.apply(title, e.id, hide);
         if (!hide) title.setText(preview(History.label(e)));
@@ -338,6 +347,8 @@ final class HistoryPage {
                 for (History.Entry c : h.children(e.id)) if (!c.prot || unlocked) { first = History.label(c); break; }
                 badge.setText(a.getString(R.string.group_badge, n));
                 badge.setContentDescription(null);
+                badge.setBackgroundResource(R.drawable.type_badge);
+                badge.setTextColor(a.getColor(R.color.accent));
                 title.setText(a.getResources().getQuantityString(R.plurals.n_codes, n, n));
                 String time = Actions.listTime(e.time);
                 sub.setVisibility(View.VISIBLE);

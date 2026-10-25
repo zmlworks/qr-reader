@@ -1,5 +1,6 @@
 package com.zmlworks.qrreader;
 
+import android.app.AlertDialog;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -15,10 +16,12 @@ import android.widget.TextView;
  * sits right under it, with a small "Save to history" button in between (adds a "Created" item; blank text is ignored and
  * saving the same text twice in a row only says "Already saved"). Mode, EC level (M) and version are chosen
  * automatically by {@link QrGen}.
- * Tapping the QR toggles the screen brightness between maximum and normal (with a one-second hint); leaving the page
- * or the app restores normal brightness.
+ * Tapping the QR asks before raising the screen brightness to maximum; tapping again restores normal brightness
+ * immediately (no confirm). Leaving the page or the app restores normal brightness.
  */
 final class CreatePage {
+    /** Empty-field placeholder: a real QR that encodes this payload. */
+    static final String PLACEHOLDER_TEXT = "no data";
     private final MainActivity a;
     private final EditText input;
     private final QrView qr;
@@ -29,6 +32,8 @@ final class CreatePage {
     private final Handler bg, ui = new Handler(Looper.getMainLooper());
     private volatile int seq;
     private QrGen.Qr current;
+    /** Last brightness-confirm dialog (tests click OK / Cancel). */
+    AlertDialog brightDialog;
 
     CreatePage(MainActivity a, View root) {
         this.a = a;
@@ -40,7 +45,7 @@ final class CreatePage {
         save = root.findViewById(R.id.save_history);
         save.setOnClickListener(v -> saveToHistory());
         hideHint = () -> hint.animate().alpha(0).setDuration(150).withEndAction(() -> hint.setVisibility(View.GONE)).start();
-        root.findViewById(R.id.qr_box).setOnClickListener(v -> setBright(!bright, true));
+        root.findViewById(R.id.qr_box).setOnClickListener(v -> onQrTap());
         worker.start();
         bg = new Handler(worker.getLooper());
         input.addTextChangedListener(new TextWatcher() {
@@ -50,6 +55,20 @@ final class CreatePage {
         });
         render(null, "");
         renderSave();
+    }
+
+    /** Confirm only when raising to max; restore to normal immediately. */
+    private void onQrTap() {
+        if (bright) {
+            setBright(false, true);
+            return;
+        }
+        brightDialog = new AlertDialog.Builder(a)
+                .setTitle(R.string.brightness_confirm_title)
+                .setMessage(R.string.brightness_confirm_message)
+                .setPositiveButton(R.string.ok, (d, w) -> setBright(true, true))
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 
     private void renderSave() {
@@ -86,11 +105,17 @@ final class CreatePage {
 
     private void render(QrGen.Qr q, String text) {
         current = q;
-        qr.setQr(q);
-        boolean none = q == null;
-        empty.setVisibility(none ? View.VISIBLE : View.GONE);
-        empty.setText(text.isEmpty() ? R.string.create_empty : R.string.too_long);
-        info.setText(none ? "" : a.getString(R.string.qr_info, q.version, q.size, q.bytes));
+        boolean emptyText = text.isEmpty();
+        boolean tooLong = !emptyText && q == null;
+        if (emptyText) {
+            QrGen.Qr ph = QrGen.encode(PLACEHOLDER_TEXT);
+            qr.setQr(ph);
+            info.setText("");
+        } else {
+            qr.setQr(q);
+            info.setText(q == null ? "" : a.getString(R.string.qr_info, q.version, q.size, q.bytes));
+        }
+        empty.setVisibility(tooLong ? View.VISIBLE : View.GONE);
     }
 
     /** @param showHint briefly say what happened (taps); silent when the page or the app is left */

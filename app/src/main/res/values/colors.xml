@@ -1,12 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="bg">#FFF7F6FB</color>
+    <!-- Create page is always dark (same slate as night); never the old lavender #D5D3F7 -->
+    <color name="create_bg">#FF1E2028</color>
+    <color name="create_save">#FFC4B5FF</color>
+    <color name="create_text">#FFEEF0F7</color>
+    <color name="create_dim">#FFA5ABBD</color>
+    <color name="create_surface">#FF262A35</color>
+    <color name="create_line">#FF3A4054</color>
     <color name="surface">#FFFFFFFF</color>
     <color name="surface2">#FFEDEAF5</color>
     <color name="text">#FF1B1A20</color>
     <color name="dim">#FF6A6774</color>
     <color name="line">#1F000000</color>
     <color name="accent">#FF6A47D6</color>
+    <color name="created">#FF7B3FD4</color>
+    <color name="created_bg">#337B3FD4</color>
     <color name="danger">#FFD64545</color>
     <color name="copy">#FF3E7BD6</color>
     <color name="snack">#FF2C2A33</color>

@@ -16,7 +16,7 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Settings tab: clear history (only its title is tappable; the two checkboxes on the right are separate) at the top,
- * then lefty, vibrate, dark mode, date format, confirm before browser, search URL (shown without https://), the
+ * then lefty, vibrate, dark mode, date format, confirm before browser, search URL (scheme stripped on OK), the
  * "Scan non-QR once" row, about &amp; licenses (a long press exports the history, see {@link Export}).
  */
 final class SettingsPage {
@@ -77,8 +77,8 @@ final class SettingsPage {
     private int dp(int v) { return (int) (v * a.getResources().getDisplayMetrics().density); }
 
     /**
-     * URL template editor. No scheme anywhere: https:// is always used, and one typed or pasted is removed at once.
-     * Empty is invalid (OK is disabled); the Google button puts the default back.
+     * URL template editor. https:// is always used at search time. A leading scheme may stay while typing;
+     * OK strips/normalizes it (same end result as before). Empty is invalid (OK disabled); Google resets.
      */
     void editTemplate() {
         final EditText et = new EditText(a);
@@ -99,11 +99,7 @@ final class SettingsPage {
             @Override public void beforeTextChanged(CharSequence s, int st, int c, int af) { }
             @Override public void onTextChanged(CharSequence s, int st, int b, int c) { }
             @Override public void afterTextChanged(android.text.Editable s) {
-                if (SearchUrl.hasScheme(s.toString())) {   // typed or pasted "https://…": the scheme goes
-                    String t = SearchUrl.strip(s.toString());
-                    s.replace(0, s.length(), t);
-                    return;   // called again with the new text
-                }
+                // do not strip http(s):// while typing — only enable/disable OK
                 android.widget.Button ok = d.getButton(AlertDialog.BUTTON_POSITIVE);
                 if (ok != null) ok.setEnabled(!s.toString().trim().isEmpty());
             }

@@ -11,9 +11,8 @@ import android.view.View;
 import java.util.Locale;
 
 /**
- * Zoom indicator: a vertical track with "+" at the top and "−" at the bottom, chevrons hinting "swipe up / down",
- * and a knob showing the current zoom (e.g. "2.4×"). Highlighted while the user is swiping. Display only: the
- * swipe itself is handled anywhere on the preview.
+ * Zoom feedback: track, +/−, chevrons and a knob with the current zoom.
+ * Idle: white-ish chrome (no translucent black "window"). Active: green accent.
  */
 public final class ZoomBarView extends View {
     private final Paint track = new Paint(Paint.ANTI_ALIAS_FLAG), knob = new Paint(Paint.ANTI_ALIAS_FLAG),
@@ -60,19 +59,14 @@ public final class ZoomBarView extends View {
         int base = active ? ACCENT : 0xFFFFFFFF;
         int a = active ? 255 : 170;
         float top = 40 * dp, bottom = h - 40 * dp;
-        // shadow-ish backdrop for contrast on bright scenes
-        knob.setStyle(Paint.Style.FILL);
-        knob.setColor(active ? 0x66000000 : 0x40000000);
-        r.set(cx - 22 * dp, 4 * dp, cx + 22 * dp, h - 4 * dp);
-        c.drawRoundRect(r, 22 * dp, 22 * dp, knob);
+        // no translucent black panel — only the white/green marks
         sign.setColor(base); sign.setAlpha(a);
         c.drawText("+", cx, top - 12 * dp, sign);
-        c.drawText("\u2212", cx, bottom + 28 * dp, sign);
+        c.drawText("−", cx, bottom + 28 * dp, sign);
         track.setColor(base); track.setAlpha(active ? 200 : 110);
         c.drawLine(cx, top, cx, bottom, track);
         float p = ZoomMath.position(zoom, min, max);
         float ky = bottom - p * (bottom - top);
-        // chevrons: up above the knob, down below it
         chev.setColor(base); chev.setAlpha(active ? 230 : 140);
         float s = 6 * dp;
         if (ky - 38 * dp > top) {
@@ -85,11 +79,12 @@ public final class ZoomBarView extends View {
             path.reset(); path.moveTo(cx - s, y - s / 2); path.lineTo(cx, y + s / 2); path.lineTo(cx + s, y - s / 2);
             c.drawPath(path, chev);
         }
+        knob.setStyle(Paint.Style.FILL);
         knob.setColor(active ? ACCENT : 0xF2FFFFFF);
         r.set(cx - 21 * dp, ky - 13 * dp, cx + 21 * dp, ky + 13 * dp);
         c.drawRoundRect(r, 13 * dp, 13 * dp, knob);
         text.setColor(0xFF111111);
-        String label = zoom >= 9.95f ? String.format(Locale.US, "%.0f\u00d7", zoom) : String.format(Locale.US, "%.1f\u00d7", zoom);
+        String label = zoom >= 9.95f ? String.format(Locale.US, "%.0f×", zoom) : String.format(Locale.US, "%.1f×", zoom);
         c.drawText(label, cx, ky + 4.5f * dp, text);
     }
 }

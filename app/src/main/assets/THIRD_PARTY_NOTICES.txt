@@ -1,6 +1,6 @@
 Third-party notices
 
-Simple QR Reader is MIT-licensed (Copyright (c) 2026 zmlworks). The APK also contains the following
+quiet QR is MIT-licensed (Copyright (c) 2026 zmlworks). The APK also contains the following
 third-party components, used unmodified.
 
 ## zxing-cpp 3.1.1 — Apache License 2.0 (QR decoding)

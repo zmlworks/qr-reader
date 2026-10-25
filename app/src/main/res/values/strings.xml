@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="app_label">Simple QR Reader</string>
+    <string name="app_label">quiet QR</string>
     <!-- scanner -->
     <string name="preview_desc">Camera preview. Swipe up to zoom in, down to zoom out, tap to focus.</string>
     <string name="zoom_desc">Zoom %1$s×. Swipe up anywhere to zoom in, down to zoom out.</string>
@@ -32,8 +32,8 @@
     <string name="scan">Scan</string>
     <string name="all">All</string>
     <string name="favorites">Favorites</string>
-    <string name="empty_history">No scans yet.\nPress back to scan a QR code.</string>
-    <string name="empty_favorites">No favorites yet.\nTap ☆ on a code to keep it here.</string>
+    <string name="empty_history">No scans yet.</string>
+    <string name="empty_favorites">No favorites yet.</string>
     <plurals name="n_codes">
         <item quantity="one">%d code</item>
         <item quantity="other">%d codes</item>
@@ -45,7 +45,7 @@
     <string name="multi_scan">Multi scan</string>
     <string name="reorder">Drag to reorder</string>
     <string name="search_history">Search history</string>
-    <string name="search_hint">Search text, names, memos</string>
+    <string name="search_hint">Search text</string>
     <string name="search_close">Clear or close search</string>
     <string name="no_matches">No matches</string>
     <plurals name="search_hidden">
@@ -91,7 +91,7 @@
     <string name="auth_open_title">Open protected item</string>
     <string name="auth_copy_title">Copy protected item</string>
     <string name="auth_unprotect_title">Remove protection</string>
-    <string name="auth_subtitle">Simple QR Reader</string>
+    <string name="auth_subtitle">quiet QR</string>
     <string name="auth_no_lock_open">No screen lock is set up any more, so the protection cannot be checked.</string>
     <string name="confirm_open_title">Open in browser?</string>
     <string name="open">Open</string>
@@ -107,6 +107,8 @@
     <string name="auth_delete_title">Delete protected item</string>
     <!-- create -->
     <string name="brightness_toggle">QR code. Tap to switch the screen brightness</string>
+    <string name="brightness_confirm_title">Max brightness?</string>
+    <string name="brightness_confirm_message">Raise the screen brightness to maximum so the QR code is easier to scan?</string>
     <string name="brightness_max">Brightness max</string>
     <string name="brightness_normal">Brightness normal</string>
     <string name="create_hint">Type text or a URL</string>

@@ -245,6 +245,21 @@ public class ScreensTest {
         List<float[]> corners = new ArrayList<>();
         Bitmap cam = fakeCamera(new String[]{"https://github.com/zmlworks/qr-reader"}, new float[][]{{W * 0.5f, H * 0.45f, 620, -6}}, corners);
         shot(s, "scanner-right-handed", cam);
+        // no swipe-anywhere hint pill; zoom chrome (white marks) stays, without a black window
+        assertEquals(View.GONE, s.findViewById(R.id.pill).getVisibility());
+        // translucent Create / History / Settings over the camera (no boxes)
+        android.view.ViewGroup tabs = s.findViewById(R.id.tab_bar);
+        assertEquals(View.VISIBLE, tabs.getVisibility());
+        assertEquals(android.graphics.Color.TRANSPARENT, ((android.graphics.drawable.ColorDrawable) tabs.getBackground()).getColor());
+        assertTrue(topIn(tabs) > H * 0.7f);
+        assertTrue("Create then History", tabs.indexOfChild(s.findViewById(R.id.tab_create))
+                < tabs.indexOfChild(s.findViewById(R.id.tab_history)));
+        assertTrue("History then Settings", tabs.indexOfChild(s.findViewById(R.id.tab_history))
+                < tabs.indexOfChild(s.findViewById(R.id.tab_settings)));
+        s.findViewById(R.id.tab_create).performClick();
+        Intent toCreate = shadowOf(s).getNextStartedActivity();
+        assertEquals(MainActivity.class.getName(), toCreate.getComponent().getClassName());
+        assertEquals(MainActivity.TAB_CREATE, toCreate.getIntExtra(MainActivity.EXTRA_TAB, -1));
     }
 
     @Test public void scannerLeftHandedMulti() throws Exception {
@@ -390,11 +405,12 @@ public class ScreensTest {
         TextView text = d.findViewById(R.id.text);
         assertEquals(d.getColor(R.color.link), text.getCurrentTextColor());
         assertTrue((text.getPaintFlags() & Paint.UNDERLINE_TEXT_FLAG) != 0);
-        // one action per row, in this order (0.7.0: Copy is no longer a row)
+        // Copy is its own card; Share / Search / Create QR are a separate group
         android.widget.LinearLayout rows = d.findViewById(R.id.actions);
         String[] labels = {d.getString(R.string.share_text), d.getString(R.string.search_web), d.getString(R.string.create_this_qr)};
         assertEquals(3, rows.getChildCount());
         for (int k = 0; k < 3; k++) assertEquals(labels[k], ((TextView) rows.getChildAt(k)).getText().toString());
+        assertEquals(d.getString(R.string.copy), ((TextView) d.findViewById(R.id.act_copy)).getText().toString());
         shot(d, "detail-url", null);
         // tap the link -> confirmation -> Open -> browser
         text.performClick();
@@ -475,7 +491,7 @@ public class ScreensTest {
         assertTrue(d.isNight());
         assertEquals(View.VISIBLE, d.findViewById(R.id.fields).getVisibility());
         android.widget.LinearLayout rows = d.findViewById(R.id.actions);
-        assertEquals(5, rows.getChildCount());   // connect, copy password + the three standard rows
+        assertEquals(5, rows.getChildCount());   // connect, copy password + share + search + create
         assertEquals(d.getString(R.string.wifi_connect), ((TextView) rows.getChildAt(0)).getText().toString());
         assertEquals(d.getString(R.string.copy_password), ((TextView) rows.getChildAt(1)).getText().toString());
         assertEquals("Café guest Wi-Fi", ((TextView) d.findViewById(R.id.name)).getText().toString());
@@ -512,13 +528,18 @@ public class ScreensTest {
         }
         assertEquals(target, QrGenTest.decode(m.createPage.qrForTest()).getText());
         layout(m);
-        // no title bar, no scan / share / save / copy / clear buttons; the square QR on top, the input right under it
-        assertEquals(View.GONE, m.findViewById(R.id.top_bar).getVisibility());
+        // Create shows the shared top bar with scan (same as History / Settings); no old share/save/copy/fab ids
+        assertEquals(View.VISIBLE, m.findViewById(R.id.top_bar).getVisibility());
+        assertEquals(View.VISIBLE, m.findViewById(R.id.btn_scan_top).getVisibility());
+        assertEquals(View.INVISIBLE, m.findViewById(R.id.btn_jump).getVisibility());
+        assertEquals(View.INVISIBLE, m.findViewById(R.id.btn_search).getVisibility());
         for (String gone : new String[]{"qr_share", "qr_save", "qr_copy", "input_clear", "fab_scan"})
             assertEquals(gone, 0, m.getResources().getIdentifier(gone, "id", m.getPackageName()));
         View box = m.findViewById(R.id.qr_box);
         assertEquals(box.getWidth(), box.getHeight());
-        assertTrue(topIn(box) < dp(m, 80));
+        assertTrue(topIn(box) < dp(m, 120));
+        // Create page is always dark (slate), never the old lavender #D5D3F7
+        assertEquals(0xFF1E2028, ((android.graphics.drawable.ColorDrawable) m.findViewById(R.id.page_create).getBackground()).getColor());
         // 0.7.0: the small "Save to history" button sits between the QR and the input
         View save = m.findViewById(R.id.save_history);
         assertEquals(dp(m, 8), topIn(save) - (topIn(box) + box.getHeight()));
@@ -575,17 +596,17 @@ public class ScreensTest {
         AlertDialog d = m.settingsPage.lastDialog;
         EditText et = d.findViewById(R.id.template_input);
         et.setText("https://duckduckgo.com/?q=");
-        assertEquals("pasted scheme removed", "duckduckgo.com/?q=", et.getText().toString());
+        assertEquals("scheme stays while typing", "https://duckduckgo.com/?q=", et.getText().toString());
         d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
         assertTrue(d.isShowing());
         assertNotNull(et.getError());
         et.setText("https://duckduckgo.com/?q=%s");
         et.setError(null);   // typing clears it on a device
-        assertEquals("duckduckgo.com/?q=%s", et.getText().toString());
+        assertEquals("scheme stays while typing", "https://duckduckgo.com/?q=%s", et.getText().toString());
         shot(m, "settings-search-engine", null, d);
         d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
         ShadowLooper.idleMainLooper();
-        assertEquals("duckduckgo.com/?q=%s", p.searchTemplate());
+        assertEquals("stripped on OK", "duckduckgo.com/?q=%s", p.searchTemplate());
         assertEquals("duckduckgo.com/?q=%s", ((TextView) m.findViewById(R.id.engine_value)).getText().toString());
         // about: link to the repository (opens after the confirmation)
         m.settingsPage.about();
@@ -1082,24 +1103,43 @@ public class ScreensTest {
         TextView hint = m.findViewById(R.id.qr_hint);
         android.view.WindowManager.LayoutParams lp = m.getWindow().getAttributes();
         assertEquals(android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE, lp.screenBrightness, 0f);
+        // raising to max asks first; Cancel leaves brightness alone
         box.performClick();
+        AlertDialog confirm = m.createPage.brightDialog;
+        assertTrue(confirm != null && confirm.isShowing());
+        confirm.getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
+        ShadowLooper.idleMainLooper();
+        assertEquals(android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE, m.getWindow().getAttributes().screenBrightness, 0f);
+        assertTrue(!m.createPage.brightForTest());
+        // OK raises to max
+        box.performClick();
+        confirm = m.createPage.brightDialog;
+        assertTrue(confirm != null && confirm.isShowing());
+        confirm.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
         assertEquals(1f, m.getWindow().getAttributes().screenBrightness, 0f);
+        assertTrue(m.createPage.brightForTest());
         assertEquals(View.VISIBLE, hint.getVisibility());
         assertEquals("Brightness max", hint.getText().toString());
         shot(m, "create-brightness-max", null);
         ShadowLooper.idleMainLooper(1300, java.util.concurrent.TimeUnit.MILLISECONDS);
         assertEquals("hint gone after about a second", View.GONE, hint.getVisibility());
+        // already max: tap restores normal immediately (no dialog)
         box.performClick();
         assertEquals(android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE, m.getWindow().getAttributes().screenBrightness, 0f);
         assertEquals("Brightness normal", hint.getText().toString());
         // leaving the page restores it
         box.performClick();
+        m.createPage.brightDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
         assertTrue(m.createPage.brightForTest());
         m.select(MainActivity.TAB_HISTORY);
         assertEquals(android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE, m.getWindow().getAttributes().screenBrightness, 0f);
         // and so does leaving the app
         m.select(MainActivity.TAB_CREATE);
         box.performClick();
+        m.createPage.brightDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
         assertEquals(1f, m.getWindow().getAttributes().screenBrightness, 0f);
         ac.pause();
         assertEquals(android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE, m.getWindow().getAttributes().screenBrightness, 0f);
@@ -1751,6 +1791,27 @@ public class ScreensTest {
                 new com.google.zxing.RGBLuminanceSource(b.getWidth(), b.getHeight(), px))), hints).getText();
     }
 
+    @Test public void createEmptyShowsNoDataQr() throws Exception {
+        MainActivity m = main(MainActivity.TAB_CREATE);
+        layout(m);
+        QrView qr = m.findViewById(R.id.qr);
+        assertTrue(qr.hasQr());
+        assertTrue(!qr.showingFinders());
+        assertEquals(View.GONE, m.findViewById(R.id.qr_empty).getVisibility());
+        // empty field shows a real QR that encodes "no data"
+        assertEquals(CreatePage.PLACEHOLDER_TEXT, QrGenTest.decode(QrGen.encode(CreatePage.PLACEHOLDER_TEXT)).getText());
+        // Create · History · Settings order; scan button on Create
+        android.view.ViewGroup tabs = m.findViewById(R.id.tab_bar);
+        assertTrue(tabs.indexOfChild(m.findViewById(R.id.tab_create)) < tabs.indexOfChild(m.findViewById(R.id.tab_history)));
+        assertTrue(tabs.indexOfChild(m.findViewById(R.id.tab_history)) < tabs.indexOfChild(m.findViewById(R.id.tab_settings)));
+        assertEquals(View.VISIBLE, m.findViewById(R.id.btn_scan_top).getVisibility());
+        shot(m, "create-empty-nodata", null);
+        ((EditText) m.findViewById(R.id.input)).setText("hi");
+        waitFor(() -> m.createPage.qrForTest() != null);
+        assertTrue(qr.hasQr());
+        assertEquals("hi", QrGenTest.decode(m.createPage.qrForTest()).getText());
+    }
+
     @Test public void createSaveToHistoryAndCreatedDetail() throws Exception {
         MainActivity m = main(MainActivity.TAB_CREATE);
         TextView save = m.findViewById(R.id.save_history);
@@ -1777,11 +1838,14 @@ public class ScreensTest {
         save.performClick();
         assertEquals(n + 1, h.size());
         assertEquals("Already saved", org.robolectric.shadows.ShadowToast.getTextOfLatestToast());
-        // History: a small "Created" marker on the date line
+        // History: purple "Created" tag on the badge
         m.select(MainActivity.TAB_HISTORY);
         layout(m);
         SwipeListView list = m.findViewById(R.id.list);
         assertEquals(c.id, list.getAdapter().getItemId(0));
+        TextView badge = list.getChildAt(0).findViewById(R.id.row_badge);
+        assertEquals("Created", badge.getText().toString());
+        assertEquals(m.getColor(R.color.created), badge.getCurrentTextColor());
         String sub = ((TextView) list.getChildAt(0).findViewById(R.id.row_sub)).getText().toString();
         assertTrue(sub, sub.endsWith(" · Created"));
         shot(m, "history-created", null);
@@ -1800,17 +1864,20 @@ public class ScreensTest {
         assertEquals(View.GONE, d2.qrForTest().getVisibility());
     }
 
-    @Test public void detailCopyUnderTheTextAndMemo() throws Exception {
+    @Test public void detailCopySeparateCardAndMemo() throws Exception {
         DetailActivity d = detail(jp);
         layout(d);
         TextView copy = d.findViewById(R.id.act_copy), text = d.findViewById(R.id.text);
-        // Copy is its own small control right under the content, not one of the rows
+        View copyCard = d.findViewById(R.id.copy_card);
         android.widget.LinearLayout rows = d.findViewById(R.id.actions);
+        // Copy alone in its own framed card, above the Share/Search/Create group
+        assertSame(copyCard, copy.getParent());
         assertTrue(copy.getParent() != rows);
-        int gap = topIn(copy) - (topIn(text) + text.getHeight());
-        assertTrue("right under the text: " + gap, gap >= 0 && gap <= dp(d, 4));
-        assertTrue(topIn(copy) < topIn(rows));
-        assertTrue("small", copy.getHeight() <= dp(d, 40) && copy.getWidth() < W / 3);
+        assertTrue("full width in its card", copy.getWidth() >= copyCard.getWidth() - dp(d, 4));
+        assertTrue(copy.getHeight() >= dp(d, 48));
+        assertTrue(topIn(copyCard) > topIn(text));
+        assertTrue(topIn(rows) > topIn(copyCard) + copyCard.getHeight());
+        shot(d, "detail-copy-row", null);
         copy.performClick();
         android.content.ClipboardManager cm = d.getSystemService(android.content.ClipboardManager.class);
         assertEquals("こんにちは、世界！ QR コードのテスト", cm.getPrimaryClip().getItemAt(0).getText().toString());
@@ -1936,12 +2003,11 @@ public class ScreensTest {
         assertTrue(m.isFinishing());
     }
 
-    @Test public void searchEngineWithoutSchemeAndMigration() throws Exception {
+    @Test public void searchEngineStripOnOkNotWhileTyping() throws Exception {
         android.content.SharedPreferences sp = RuntimeEnvironment.getApplication().getSharedPreferences("settings", android.content.Context.MODE_PRIVATE);
-        sp.edit().putString("search_template", "https://duckduckgo.com/?q=%s").commit();   // as 0.6.0 stored it
+        sp.edit().putString("search_template", "duckduckgo.com/?q=%s").commit();
         MainActivity m = main(MainActivity.TAB_SETTINGS);
         assertEquals("duckduckgo.com/?q=%s", ((TextView) m.findViewById(R.id.engine_value)).getText().toString());
-        assertEquals("migrated once", "duckduckgo.com/?q=%s", sp.getString("search_template", null));
         assertEquals("https://duckduckgo.com/?q=a%20b", SearchUrl.build(App.get().prefs().searchTemplate(), "a b"));
         m.findViewById(R.id.set_engine).performClick();
         ShadowLooper.idleMainLooper();
@@ -1950,17 +2016,17 @@ public class ScreensTest {
         EditText et = d.findViewById(R.id.template_input);
         assertEquals("duckduckgo.com/?q=%s", et.getText().toString());
         assertEquals("www.google.com/search?q=%s", et.getHint().toString());
-        // empty: OK disabled (no "empty = Google" any more)
+        // empty: OK disabled
         et.setText("");
         assertTrue(!d.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled());
-        // a pasted scheme is removed
+        // a typed/pasted scheme stays until OK
         et.setText("http://search.example.org/find?q=%s");
-        assertEquals("search.example.org/find?q=%s", et.getText().toString());
+        assertEquals("http://search.example.org/find?q=%s", et.getText().toString());
         assertTrue(d.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled());
         shot(m, "settings-search-engine-no-scheme", null, d);
         d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
         ShadowLooper.idleMainLooper();
-        assertEquals("search.example.org/find?q=%s", sp.getString("search_template", null));
+        assertEquals("stripped on OK", "search.example.org/find?q=%s", sp.getString("search_template", null));
         assertEquals("search.example.org/find?q=%s", ((TextView) m.findViewById(R.id.engine_value)).getText().toString());
         assertEquals("always https", "https://search.example.org/find?q=x", SearchUrl.build(App.get().prefs().searchTemplate(), "x"));
         // the Google button
@@ -1969,11 +2035,8 @@ public class ScreensTest {
         m.settingsPage.lastDialog.getButton(AlertDialog.BUTTON_NEUTRAL).performClick();
         ShadowLooper.idleMainLooper();
         assertEquals("www.google.com/search?q=%s", ((TextView) m.findViewById(R.id.engine_value)).getText().toString());
-        // nothing on screen says https
+        // settings list itself does not show https (template is scheme-less)
         assertTrue(!textOf(m.findViewById(R.id.page_settings)).contains("https"));
-        // a 0.1.0 engine choice still migrates
-        sp.edit().remove("search_template").putString("search_engine", "bing").commit();
-        assertEquals("www.bing.com/search?q=%s", App.get().prefs().searchTemplate());
     }
 
     @Test public void exportJsonContent() throws Exception {
@@ -1982,9 +2045,10 @@ public class ScreensTest {
         h.setFavorite(url, true);
         h.setFavoriteOrder(List.of(jp, url));
         h.saveCreated("made here", System.currentTimeMillis());
-        org.json.JSONObject o = Export.json(h, "0.7.0", 1_760_000_000_000L, java.time.ZoneId.of("Asia/Tokyo"));
-        assertEquals("com.zmlworks.qrreader", o.getString("package"));
-        assertEquals("0.7.0", o.getString("appVersion"));
+        org.json.JSONObject o = Export.json(h, "0.8.0", 1_760_000_000_000L, java.time.ZoneId.of("Asia/Tokyo"));
+        assertEquals("quiet QR", o.getString("app"));
+        assertEquals("com.zmlworks.quietqr", o.getString("package"));
+        assertEquals("0.8.0", o.getString("appVersion"));
         assertEquals(1, o.getInt("formatVersion"));
         assertEquals("2025-10-09T17:53:20+09:00", o.getString("exportedAt"));
         org.json.JSONArray items = o.getJSONArray("items");
@@ -2017,7 +2081,7 @@ public class ScreensTest {
         assertEquals(2, order.length());
         assertEquals(jp, order.getLong(0));
         assertEquals(url, order.getLong(1));
-        assertEquals("qr-reader-history-20261018.json", Export.fileName(java.time.LocalDate.of(2026, 10, 18)));
+        assertEquals("quiet-qr-history-20261018.json", Export.fileName(java.time.LocalDate.of(2026, 10, 18)));
     }
 
     @Test public void exportFlowAuthGateAndPicker() throws Exception {
@@ -2048,7 +2112,7 @@ public class ScreensTest {
         assertEquals(Intent.ACTION_CREATE_DOCUMENT, pick.intent.getAction());
         assertEquals("application/json", pick.intent.getType());
         assertEquals(Export.fileName(java.time.LocalDate.now()), pick.intent.getStringExtra(Intent.EXTRA_TITLE));
-        assertTrue(pick.intent.getStringExtra(Intent.EXTRA_TITLE).matches("qr-reader-history-\\d{8}\\.json"));
+        assertTrue(pick.intent.getStringExtra(Intent.EXTRA_TITLE).matches("quiet-qr-history-\\d{8}\\.json"));
         assertTrue("the picker is not leaving the app", App.get().holdForeground);
         String[] perms = m.getPackageManager().getPackageInfo(m.getPackageName(), android.content.pm.PackageManager.GET_PERMISSIONS).requestedPermissions;
         for (String p : perms) assertTrue(p, !p.contains("STORAGE") && !p.contains("INTERNET"));
@@ -2069,7 +2133,7 @@ public class ScreensTest {
         assertTrue(!App.get().holdForeground);
         org.json.JSONObject o = new org.json.JSONObject(bytes.toString("UTF-8"));
         assertEquals(10, o.getJSONArray("items").length());
-        assertEquals("0.7.0", o.getString("appVersion"));
+        assertEquals("0.8.3", o.getString("appVersion"));
         assertEquals("Exported 10 codes", org.robolectric.shadows.ShadowToast.getTextOfLatestToast());
         // nothing protected: no prompt at all
         h.setProtected(wifi, false);

@@ -80,16 +80,16 @@
         android:orientation="horizontal">
 
         <TextView
-            android:id="@+id/tab_history"
-            style="@style/Tab"
-            android:drawableTop="@drawable/ic_history"
-            android:text="@string/history" />
-
-        <TextView
             android:id="@+id/tab_create"
             style="@style/Tab"
             android:drawableTop="@drawable/ic_create"
             android:text="@string/create" />
+
+        <TextView
+            android:id="@+id/tab_history"
+            style="@style/Tab"
+            android:drawableTop="@drawable/ic_history"
+            android:text="@string/history" />
 
         <TextView
             android:id="@+id/tab_settings"

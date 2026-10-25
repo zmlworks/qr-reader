@@ -1,4 +1,4 @@
-# Simple QR Reader
+# quiet QR
 
 <img src="docs/icon.png" width="96" align="right" alt="icon">
 
@@ -21,7 +21,7 @@ Multi mode collects every distinct code in view. After a read the preview freeze
 You can protect history items with a lock. The list then shows the date and a blurred placeholder line (never the real text).
 Opening, copying, unprotecting or deleting protected codes needs your fingerprint, face or screen lock (framework BiometricPrompt, no AndroidX).
 After that, nothing asks again for 60 s, and an "Unlocked · 52s" pill (History, Settings and detail) lets you lock early.
-Tapping the QR on the Create page switches the screen brightness between maximum and normal. History can jump to a date with
+Tapping the QR on the Create page asks before raising brightness to maximum (tap again restores normal immediately). The Create page is always dark. History can jump to a date with
 day / month / year wheels. Dates follow the Date format setting (DD/MM/YYYY by default, MM/DD/YYYY or YYYY/MM/DD), everywhere,
 including the order of the wheels. Settings has Clear all history: favorites and protected codes are kept unless you tick "incl. favorites" /
 "incl. protected", and you confirm by sliding. It also has "[Scan non-QR once]" (only the text itself reacts to taps), a one-time scan for every other barcode type (no QR, Micro QR or rMQR).
@@ -30,10 +30,9 @@ History shows the full date, custom names (in bold), favorites, swipe-to-delete 
 search and a "2 protected items hidden · Unlock" line lets you authenticate; during the 60 s grace they are searched and shown
 normally (lists show them in full with a small lock, and blur again live when the grace ends). Swipe-deleting a protected code
 needs authentication too. Favorites can be reordered by dragging the ≡ handle; the order is kept. The detail page lets you name
-an item and write a memo (autosaved), shows URLs as links (with an optional confirmation before the browser opens), has a small
-Copy button right under the text and lists share / web search / create QR as rows. Create shows a QR code that updates with every
+an item and write a memo (autosaved), shows URLs as links (with an optional confirmation before the browser opens), has Copy / share / web search / create QR as full-width rows. Create shows a QR code that updates with every
 character you type, with the input right under it, and a small "Save to history" button between them (saved as a "Created" item
-whose detail shows the QR). The search engine is always https; you enter it without a scheme (`www.google.com/search?q=%s`).
+whose detail shows the QR). The search engine is always https; a leading http(s):// is stripped when you press OK (`www.google.com/search?q=%s`).
 Long-press About & licenses to export the whole history as one JSON file (after authentication when it has protected codes).
 No INTERNET permission, no analytics. MIT © zmlworks.
 
@@ -44,7 +43,7 @@ No INTERNET permission, no analytics. MIT © zmlworks.
 （画面はテスト用にJVM上で描画したもの (Robolectric)。カメラ映像の部分は合成画像です。ほかの画面は [docs/screenshots](docs/screenshots) にあります。）
 
 ## 入手
-[Releases](https://github.com/zmlworks/qr-reader/releases) の `qr-reader-0.7.0.apk` をインストールしてください（Android 8.0 以上）。
+[Releases](https://github.com/zmlworks/qr-reader/releases) の `quiet-qr-0.8.3.apk` をインストールしてください（Android 8.0 以上）。
 署名証明書 SHA-256: `2E:F7:FF:51:8A:B0:76:54:47:F4:D2:BD:9C:C4:8C:E6:02:1F:EC:08:FD:47:6F:1F:7D:AB:6F:BB:98:08:68:DE`
 
 ## 使い方

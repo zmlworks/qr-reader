@@ -109,23 +109,6 @@
                 android:textColor="@color/text"
                 android:textSize="18sp" />
 
-            <!-- copy, right under the content (no longer one of the action rows) -->
-            <TextView
-                android:id="@+id/act_copy"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_gravity="end"
-                android:layout_marginTop="2dp"
-                android:background="?android:attr/selectableItemBackground"
-                android:drawableStart="@drawable/ic_copy_small"
-                android:drawablePadding="6dp"
-                android:gravity="center_vertical"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:text="@string/copy"
-                android:textColor="@color/accent"
-                android:textSize="14sp" />
-
             <TextView
                 android:id="@+id/fields"
                 android:layout_width="match_parent"
@@ -139,12 +122,28 @@
                 android:textSize="16sp"
                 android:visibility="gone" />
 
-            <!-- one action per row; type-specific rows (call, mail, map, Wi-Fi) are added on top in code -->
+            <!-- Copy in its own card, apart from Share / Search / Create QR -->
+            <LinearLayout
+                android:id="@+id/copy_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/card_bg"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/act_copy"
+                    style="@style/ActionRow"
+                    android:drawableStart="@drawable/ic_copy"
+                    android:text="@string/copy" />
+            </LinearLayout>
+
+            <!-- type-specific rows (call, mail, map, Wi-Fi) are added on top in code -->
             <LinearLayout
                 android:id="@+id/actions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="8dp"
                 android:background="@drawable/card_bg"
                 android:divider="@drawable/row_divider"
                 android:orientation="vertical"

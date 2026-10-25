@@ -111,6 +111,9 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         btnFlash = findViewById(R.id.btn_flash);
         btnMulti = findViewById(R.id.btn_multi);
         btnImage = findViewById(R.id.btn_image);
+        findViewById(R.id.tab_history).setOnClickListener(v -> openMain(MainActivity.TAB_HISTORY));
+        findViewById(R.id.tab_create).setOnClickListener(v -> openMain(MainActivity.TAB_CREATE));
+        findViewById(R.id.tab_settings).setOnClickListener(v -> openMain(MainActivity.TAB_SETTINGS));
         modeBadge = findViewById(R.id.mode_badge);
         modeBadge.setOnClickListener(v -> { App.get().nonQr = false; renderMode(); });
         pill = findViewById(R.id.pill);
@@ -139,13 +142,7 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         });
         multi = App.get().prefs().multi();
         takeMode(getIntent());
-        if (b == null && App.get().prefs().zoomHints() < 3) {
-            App.get().prefs().countZoomHint();
-            hintUntil = SystemClock.uptimeMillis() + 3500;
-        }
     }
-
-    private long hintUntil;
 
     @SuppressWarnings("deprecation")
     private void edgeToEdge() {
@@ -383,15 +380,20 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
     }
 
     private void close() {
-        App.get().nonQr = false;   // × ends a non-QR session
+        openMain(MainActivity.TAB_HISTORY);
+    }
+
+    /** Leave the scanner for History / Create / Settings (same bottom tabs as MainActivity). */
+    private void openMain(int tab) {
+        App.get().nonQr = false;   // leaving ends a non-QR session
         nonQrMode = false;
         logic.reset();
         long g = groupId;
         int n = logic.collectedCount();
         endMultiSession();
         renderButtons();
-        Intent main = new Intent(this, MainActivity.class);
-        if (multi && n > 0 && g != 0) {
+        Intent main = new Intent(this, MainActivity.class).putExtra(MainActivity.EXTRA_TAB, tab);
+        if (multi && n > 0 && g != 0 && tab == MainActivity.TAB_HISTORY) {
             startActivities(new Intent[]{main, new Intent(this, CodesActivity.class)
                     .putExtra(CodesActivity.EXTRA_GROUP, g).putExtra(CodesActivity.EXTRA_JUST_SCANNED, true)});
         } else {
@@ -422,11 +424,6 @@ public final class ScannerActivity extends BaseActivity implements TextureView.S
         // never while a read is being opened (the freeze) or a picture is read
         String s = handled || frozen || readingImage ? null : logic.suppressed(SystemClock.uptimeMillis());
         suppressedShown = s;
-        if (s == null && SystemClock.uptimeMillis() < hintUntil) {
-            pill.setVisibility(View.VISIBLE);
-            pill.setText(R.string.zoom_hint);
-            return;
-        }
         pill.setVisibility(s == null ? View.GONE : View.VISIBLE);
         if (s != null) pill.setText(getString(R.string.already_read, s.length() > 40 ? s.substring(0, 40) + "…" : s));
     }

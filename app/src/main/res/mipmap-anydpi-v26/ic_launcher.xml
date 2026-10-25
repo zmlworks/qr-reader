@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- transparent background: the rounded-square artwork (foreground) sits inside the 66dp safe zone, so no launcher
-     mask clips it and it is not masked twice -->
+<!-- full-bleed QR on white (mint→lavender, green scan line); white adaptive bg; launcher mask applies the shape -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@android:color/transparent" />
+    <background android:drawable="@drawable/ic_launcher_background" />
     <foreground android:drawable="@mipmap/ic_launcher_foreground" />
     <monochrome android:drawable="@mipmap/ic_launcher_monochrome" />
 </adaptive-icon>

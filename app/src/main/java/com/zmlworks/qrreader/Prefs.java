@@ -4,7 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 
-/** Settings (SharedPreferences). */
+/** Settings (SharedPreferences). Clean break at 0.8.0 / quiet QR: no migration from older app IDs. */
 final class Prefs {
     private final SharedPreferences p;
 
@@ -17,21 +17,19 @@ final class Prefs {
     void setVibrate(boolean v) { p.edit().putBoolean("vibrate", v).apply(); }
 
     /**
-     * Dark mode on/off. Not set yet: follows the system's current state once and is then remembered
-     * (a 0.1.0 Light/Dark choice is carried over).
+     * Dark mode on/off. Not set yet: follows the system's current state once and is then remembered.
      */
     boolean dark(Configuration system) {
         if (!p.contains("dark")) {
-            int old = p.getInt("theme", 0);   // 0.1.0: 0 system, 1 light, 2 dark
-            boolean d = old == 2 || (old != 1 && (system.uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES);
-            p.edit().putBoolean("dark", d).remove("theme").apply();
+            boolean d = (system.uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+            p.edit().putBoolean("dark", d).apply();
             return d;
         }
         return p.getBoolean("dark", false);
     }
     void setDark(boolean v) { p.edit().putBoolean("dark", v).apply(); }
     /** test hook: forget the choice (next start follows the system again) */
-    void resetDark() { p.edit().remove("dark").remove("theme").apply(); }
+    void resetDark() { p.edit().remove("dark").apply(); }
 
     /** date format for every date shown (default DD/MM/YYYY) */
     DateFmt dateFmt() { return DateFmt.of(p.getString("date_format", null)); }
@@ -41,22 +39,13 @@ final class Prefs {
     void setConfirmBrowser(boolean v) { p.edit().putBoolean("confirm_browser", v).apply(); }
 
     /**
-     * Search URL template with %s, without a scheme (https:// is always used). Templates saved by 0.2.0-0.6.0
-     * ("https://…") are rewritten once in the new form; a 0.1.0 engine choice is carried over.
+     * Search URL template with %s, without a scheme (https:// is always used).
+     * A leading scheme typed in Settings is stripped when the user presses OK, not while typing.
      */
     String searchTemplate() {
         String t = p.getString("search_template", null);
-        if (t != null) {
-            String n = SearchUrl.normalize(t);
-            if (!n.equals(t)) p.edit().putString("search_template", n).apply();
-            return n;
-        }
-        if (p.contains("search_engine")) {
-            t = SearchUrl.migrate(p.getString("search_engine", null), p.getString("search_custom", ""));
-            p.edit().putString("search_template", t).remove("search_engine").remove("search_custom").apply();
-            return t;
-        }
-        return SearchUrl.DEFAULT_TEMPLATE;
+        if (t == null) return SearchUrl.DEFAULT_TEMPLATE;
+        return SearchUrl.validTemplate(t) ? SearchUrl.strip(t) : SearchUrl.DEFAULT_TEMPLATE;
     }
     /** stores the scheme-less form */
     void setSearchTemplate(String v) { p.edit().putString("search_template", SearchUrl.strip(v)).apply(); }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- full-bleed QR on white (mint→lavender, green scan line); white adaptive bg; launcher mask applies the shape -->
+<!-- squircle QR on white (mint→lavender, green scan line); solid white adaptive bg; launcher mask applies the shape -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
     <foreground android:drawable="@mipmap/ic_launcher_foreground" />

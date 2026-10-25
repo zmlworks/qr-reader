@@ -43,7 +43,7 @@ No INTERNET permission, no analytics. MIT © zmlworks.
 （画面はテスト用にJVM上で描画したもの (Robolectric)。カメラ映像の部分は合成画像です。ほかの画面は [docs/screenshots](docs/screenshots) にあります。）
 
 ## 入手
-[Releases](https://github.com/zmlworks/qr-reader/releases) の `quiet-qr-0.8.3.apk` をインストールしてください（Android 8.0 以上）。
+[Releases](https://github.com/zmlworks/qr-reader/releases) の `quiet-qr-0.8.4.apk` をインストールしてください（Android 8.0 以上）。
 署名証明書 SHA-256: `2E:F7:FF:51:8A:B0:76:54:47:F4:D2:BD:9C:C4:8C:E6:02:1F:EC:08:FD:47:6F:1F:7D:AB:6F:BB:98:08:68:DE`
 
 ## 使い方

@@ -1,13 +1,22 @@
 package com.zmlworks.qrreader;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.res.ColorStateList;
+import android.content.res.Configuration;
+import android.graphics.drawable.ColorDrawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
 /**
  * History / Create / Settings with bottom tabs. Back (or the scan icon in the top bar of History and Settings) returns
  * to the scanner. Create also shows the top bar (scan only); the tabs hide while the keyboard is open, so the QR and the input fit.
+ * <p>
+ * On Create (while the app is in light mode) the chrome (top bar, tabs, status/nav bars) uses the same night colours
+ * as {@code values-night}, so the whole screen matches dark mode — not only the Create page body.
  */
 public final class MainActivity extends BaseActivity {
     static final String EXTRA_TAB = "tab", EXTRA_CREATE_TEXT = "create_text", EXTRA_UNDO = "undo", EXTRA_UNDO_DETAIL = "undo_detail";
@@ -92,6 +101,7 @@ public final class MainActivity extends BaseActivity {
         if (t != TAB_HISTORY) historyPage.hideKeyboard();
         ((UnlockPill) findViewById(R.id.unlock_pill)).setAllowed(t != TAB_CREATE);   // History and Settings
         renderBars();
+        applyChrome();
         if (t == TAB_HISTORY) historyPage.refresh();
         if (t == TAB_SETTINGS) settingsPage.refresh();
         if (t != TAB_CREATE) { createPage.hideKeyboard(); createPage.setBright(false, false); }
@@ -107,6 +117,65 @@ public final class MainActivity extends BaseActivity {
         findViewById(R.id.btn_scan_top).setVisibility(View.VISIBLE);
         findViewById(R.id.btn_jump).setVisibility(history && !historyPage.favOnly() ? View.VISIBLE : View.INVISIBLE);
         findViewById(R.id.btn_search).setVisibility(history ? View.VISIBLE : View.INVISIBLE);
+    }
+
+    /**
+     * When light prefs show Create, paint chrome with night colours so title + tabs match the dark Create body.
+     * Night mode already uses those colours globally — leave it alone. Leaving Create restores light chrome.
+     */
+    private void applyChrome() {
+        if (isNight()) return;
+        boolean create = tab == TAB_CREATE;
+        Context colors = create ? nightColors() : this;
+        int bg = colors.getColor(R.color.bg);
+        int text = colors.getColor(R.color.text);
+        int dim = colors.getColor(R.color.dim);
+        int line = colors.getColor(R.color.line);
+        int accent = colors.getColor(R.color.accent);
+
+        root.setBackgroundColor(bg);
+        topBar.setBackgroundColor(bg);
+        tabBar.setBackgroundColor(bg);
+        tabLine.setBackgroundColor(line);
+        title.setTextColor(text);
+
+        ColorStateList tabCs = new ColorStateList(
+                new int[][]{new int[]{android.R.attr.state_selected}, new int[]{}},
+                new int[]{accent, dim});
+        for (TextView tv : tabs) {
+            tv.setTextColor(tabCs);
+            tv.setCompoundDrawableTintList(tabCs);
+        }
+
+        ColorStateList icon = ColorStateList.valueOf(text);
+        for (int id : new int[]{R.id.btn_scan_top, R.id.btn_jump, R.id.btn_search}) {
+            ((ImageButton) findViewById(id)).setImageTintList(icon);
+        }
+
+        getWindow().setStatusBarColor(bg);
+        getWindow().setNavigationBarColor(bg);
+        setLightSystemBars(!create);
+    }
+
+    /** Night-resource Context (same palette as {@code values-night}) without flipping the activity's uiMode. */
+    private Context nightColors() {
+        Configuration n = new Configuration(getResources().getConfiguration());
+        n.uiMode = (n.uiMode & ~Configuration.UI_MODE_NIGHT_MASK) | Configuration.UI_MODE_NIGHT_YES;
+        return createConfigurationContext(n);
+    }
+
+    @SuppressWarnings("deprecation")
+    private void setLightSystemBars(boolean light) {
+        View decor = getWindow().getDecorView();
+        int flags = decor.getSystemUiVisibility();
+        if (light) {
+            flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (Build.VERSION.SDK_INT >= 26) flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        } else {
+            flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (Build.VERSION.SDK_INT >= 26) flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        }
+        decor.setSystemUiVisibility(flags);
     }
 
     @SuppressWarnings("deprecation")   // predictive back is not enabled; this only closes the search field first
@@ -160,6 +229,7 @@ public final class MainActivity extends BaseActivity {
         super.onResume();
         if (tab == TAB_HISTORY) historyPage.refresh();
         if (tab == TAB_SETTINGS) settingsPage.refresh();
+        applyChrome();
     }
 
     @Override protected void onPause() {
@@ -185,4 +255,10 @@ public final class MainActivity extends BaseActivity {
 
     int tabForTest() { return tab; }
     void setKeyboardForTest(boolean k) { keyboard = k; renderBars(); }
+
+    /** Background colour currently painted on the top / tab bars (for tests). */
+    int chromeBgForTest() {
+        ColorDrawable d = (ColorDrawable) topBar.getBackground();
+        return d != null ? d.getColor() : 0;
+    }
 }

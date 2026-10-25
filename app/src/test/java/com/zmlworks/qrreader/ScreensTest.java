@@ -540,6 +540,11 @@ public class ScreensTest {
         assertTrue(topIn(box) < dp(m, 120));
         // Create page is always dark (slate), never the old lavender #D5D3F7
         assertEquals(0xFF1E2028, ((android.graphics.drawable.ColorDrawable) m.findViewById(R.id.page_create).getBackground()).getColor());
+        // light prefs: chrome (title + tabs) also uses night bg so the whole screen matches dark mode
+        assertTrue(!m.isNight());
+        assertEquals(0xFF1E2028, m.chromeBgForTest());
+        assertEquals(0xFF1E2028, ((android.graphics.drawable.ColorDrawable) m.findViewById(R.id.tab_bar).getBackground()).getColor());
+        assertEquals(0xFF1E2028, ((android.graphics.drawable.ColorDrawable) m.findViewById(R.id.top_bar).getBackground()).getColor());
         // 0.7.0: the small "Save to history" button sits between the QR and the input
         View save = m.findViewById(R.id.save_history);
         assertEquals(dp(m, 8), topIn(save) - (topIn(box) + box.getHeight()));
@@ -568,6 +573,12 @@ public class ScreensTest {
         try (FileOutputStream os = new FileOutputStream(new File(OUT, "create-keyboard.png"))) { bmp.compress(Bitmap.CompressFormat.PNG, 100, os); }
         m.setKeyboardForTest(false);
         assertEquals(View.VISIBLE, m.findViewById(R.id.tab_bar).getVisibility());
+        // leaving Create restores light chrome
+        m.select(MainActivity.TAB_HISTORY);
+        assertEquals(0xFFF7F6FB, m.chromeBgForTest());
+        assertEquals(0xFFF7F6FB, ((android.graphics.drawable.ColorDrawable) m.findViewById(R.id.tab_bar).getBackground()).getColor());
+        m.select(MainActivity.TAB_CREATE);
+        assertEquals(0xFF1E2028, m.chromeBgForTest());
     }
 
     @Test public void settings() throws Exception {
@@ -2133,7 +2144,7 @@ public class ScreensTest {
         assertTrue(!App.get().holdForeground);
         org.json.JSONObject o = new org.json.JSONObject(bytes.toString("UTF-8"));
         assertEquals(10, o.getJSONArray("items").length());
-        assertEquals("0.8.3", o.getString("appVersion"));
+        assertEquals("0.8.4", o.getString("appVersion"));
         assertEquals("Exported 10 codes", org.robolectric.shadows.ShadowToast.getTextOfLatestToast());
         // nothing protected: no prompt at all
         h.setProtected(wifi, false);

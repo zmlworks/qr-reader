@@ -185,10 +185,25 @@ public final class DetailActivity extends BaseActivity {
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
             finish();
         };
-        findViewById(R.id.act_qr).setOnClickListener(nonQr ? v -> startActivity(RecreateActivity.intent(this, e.format, s)) : asQr);
+        TextView recreate = findViewById(R.id.act_qr);
+        recreate.setCompoundDrawablesRelativeWithIntrinsicBounds(nonQr ? R.drawable.ic_barcode : R.drawable.ic_qr, 0, 0, 0);
+        boolean canRecreate = !nonQr || canRecreate(e.format, s);
+        recreate.setEnabled(canRecreate);
+        recreate.setAlpha(canRecreate ? 1f : 0.38f);   // unsupported format or text: greyed out, not tappable
+        recreate.setOnClickListener(!canRecreate ? null : nonQr ? v -> startActivity(RecreateActivity.intent(this, e.format, s)) : asQr);
+        recreate.setClickable(canRecreate);
         View showQr = findViewById(R.id.act_show_qr);
         showQr.setVisibility(nonQr ? View.VISIBLE : View.GONE);
         showQr.setOnClickListener(asQr);
+    }
+
+    /** whether a non-QR item can be redrawn in its own format (tries the encode) */
+    static boolean canRecreate(String format, String text) {
+        try {
+            return Recreate.encode(format, text) != null;
+        } catch (Recreate.InvalidContent ex) {
+            return false;
+        }
     }
 
     /** A type-specific action row, above the standard ones (in the order added). */

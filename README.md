@@ -30,7 +30,7 @@ History shows the full date, custom names (in bold), favorites, swipe-to-delete 
 search and a "2 protected items hidden · Unlock" line lets you authenticate; during the 60 s grace they are searched and shown
 normally (lists show them in full with a small lock, and blur again live when the grace ends). Swipe-deleting a protected code
 needs authentication too. Favorites can be reordered by dragging the ≡ handle; the order is kept. The detail page lets you name
-an item and write a memo (autosaved), shows URLs as links (with an optional confirmation before the browser opens), has Copy / share / web search / "Recreate this code" as full-width rows. For a non-QR code, "Recreate this code" redraws it in its original format (EAN-13/ISBN, EAN-8, UPC-A, UPC-E, Code 128, Code 39, Code 93, Codabar, ITF/ITF-14, DataMatrix, Aztec, PDF417) on white with quiet zones and the text below (tap asks before max brightness); other formats say "This format can't be recreated", and a separate "Show as QR code" row shows the text as a QR code. Create shows a QR code that updates with every
+an item and write a memo, shows URLs as links (with an optional confirmation before the browser opens), has Copy / share / web search / "Recreate this code" as full-width rows. For a non-QR code, "Recreate this code" redraws it in its original format (EAN-13/ISBN, EAN-8, UPC-A, UPC-E, Code 128, Code 39, Code 93, Codabar, ITF/ITF-14, DataMatrix, Aztec, PDF417) on white with quiet zones and the text below (tap asks "Max brightness?"); for other formats, or text that does not fit the format, the row is greyed out, and a separate "Show as QR code" row shows the text as a QR code. Create shows a QR code that updates with every
 character you type, with the input right under it, and a small "Save to history" button between them (saved as a "Created" item
 whose detail shows the QR). The search engine is always https; a leading http(s):// is stripped when you press OK (`www.google.com/search?q=%s`).
 Long-press About & licenses to export the whole history as one JSON file (after authentication when it has protected codes).
@@ -39,6 +39,10 @@ No INTERNET permission, no analytics. MIT © zmlworks.
 | スキャナー（右手） | 左手モード・複数読み取り | 履歴 | 保護した項目 | 履歴の検索 | 詳細・メモ | 作成 | 設定 | ダークモード |
 |---|---|---|---|---|---|---|---|---|
 | ![](docs/screenshots/scanner-right-handed.png) | ![](docs/screenshots/scanner-left-handed-multi.png) | ![](docs/screenshots/history.png) | ![](docs/screenshots/history-protected.png) | ![](docs/screenshots/history-search-locked.png) | ![](docs/screenshots/detail-memo.png) | ![](docs/screenshots/create-save-to-history.png) | ![](docs/screenshots/settings-clear-including-protected.png) | ![](docs/screenshots/detail-wifi-dark.png) |
+
+| QR 以外の詳細（バーコードのアイコン） / Non-QR detail | 再現できない形式（灰色） / Can't be recreated (greyed out) | コードの再現 / Recreated code | 明るさの確認 / Brightness confirm |
+|---|---|---|---|
+| ![](docs/screenshots/detail-non-qr-actions.png) | ![](docs/screenshots/detail-recreate-unsupported.png) | ![](docs/screenshots/recreate-ean13.png) | ![](docs/screenshots/recreate-ean13-brightness-confirm.png) |
 
 （画面はテスト用にJVM上で描画したもの (Robolectric)。カメラ映像の部分は合成画像です。ほかの画面は [docs/screenshots](docs/screenshots) にあります。）
 
@@ -93,15 +97,15 @@ No INTERNET permission, no analytics. MIT © zmlworks.
     🗑 で消すと履歴に戻って UNDO が出ます。UNDO を押すと元に戻り、その詳細画面に戻ります。
   - URL は青い下線付きのリンクで表示し、タップするとブラウザで開きます（設定によって確認ダイアログあり）。
   - 本文のすぐ下の右に小さな「Copy」ボタン（クリップボードにコピー）。
-  - その下に 1 行ずつ: 「Share text」「Search the web」（設定の検索 URL で検索）「Recreate this code」（コードを再現する）。
+  - その下に 1 行ずつ: 「Share text」「Search the web」（設定の検索 URL で検索）「Recreate this code」（コードを再現する。QR 以外のコードではアイコンが 1 次元バーコードの形）。
     QR コードならこれまでどおり作成画面に QR コードを出します。QR 以外のコードは、読み取ったときと同じ形式で表示し、別の行「Show as QR code」で QR コードとしても表示できます（下の「コードの再現」）。
   - いちばん下に「Memo」欄（複数行）。入力すると自動で保存し、検索の対象にもなります。保護した項目では、認証してから（詳細を開けたときだけ）表示します。
   - 作成画面で保存した項目（Created）は、上に QR コードを表示します。
   - tel: / mailto: / SMS / geo: / Wi-Fi には、それぞれの行（電話、メール、地図、Wi-Fi 接続とパスワードのコピー）が上に加わります。
 - **コードの再現（QR 以外）**: 「Recreate this code」で、読み取ったときの形式のまま白い背景に描きます（画面の幅いっぱい、余白（クワイエットゾーン）付き、下に文字）。
   - 対応形式: EAN-13（ISBN を含む）、EAN-8、UPC-A、UPC-E、Code 128、Code 39（Code 32・PZN は内容が Code 39 として正しいときだけ Code 39 で描きます）、Code 93、Codabar、ITF（ITF-14 を含む）、DataMatrix、Aztec、PDF417。
-  - DataBar、Telepen、DX Film Edge、EAN のアドオン、MaxiCode、MicroPDF417、Micro QR、rMQR は「This format can't be recreated」と出します。内容が形式に合わない（チェックデジットの誤りなど）ときもメッセージを出します。どちらの場合も「Show as QR code」は使えます。
-  - コードをタップすると、作成画面と同じく確認してから画面を最大の明るさにします（もう一度タップで通常に戻り、画面を離れても戻ります）。
+  - DataBar、Telepen、DX Film Edge、EAN のアドオン、MaxiCode、MicroPDF417、Micro QR、rMQR と、内容が形式に合わない（チェックデジットの誤りなど）ときは、「Recreate this code」の行が灰色になり押せません。「Show as QR code」は使えます。
+  - コードをタップすると、作成画面と同じく「Max brightness?」と確認してから画面を最大の明るさにします（もう一度タップで通常に戻り、画面を離れても戻ります）。
 - **保護（鍵）**: 詳細画面の鍵ボタンで、その項目を保護します（塗りつぶしの鍵 = 保護中）。
   - 保護をオンにするのに認証は要りません。ただし端末に画面ロック（PIN・パターン・パスワード）がないとオンにできず、設定を開くボタンを出します。
   - 保護した項目を開く、左スワイプでコピーする、保護を外すときは、指紋・顔認証か画面ロックで確認します。
@@ -113,7 +117,7 @@ No INTERNET permission, no analytics. MIT © zmlworks.
   - 「n codes」のまとまりの中の保護したコードは、プレビュー・Copy all・Share all に含めません。右スワイプの削除と UNDO はそのまま使えます。
   - あとで画面ロックを外した場合、保護した項目は確認なしで開きます（その旨のメッセージが出ます）。
 - **Create**: 上に正方形の QR コード、そのすぐ下に入力欄があり、1 文字ごとに QR コードが更新されます。
-  - QR コードをタップすると、画面の明るさを最大と通常で切り替えます（約 1 秒「Brightness max / normal」と表示）。
+  - QR コードをタップすると、画面の明るさを最大と通常で切り替えます（最大にするときは「Max brightness?」と確認。約 1 秒「Brightness max / normal」と表示）。
     ほかのタブやアプリに移ると通常の明るさに戻ります。
   - キーボードを開くと下のタブを隠し、QR コードを縮めて、QR コードと入力欄の両方が見えるようにします。
   - 誤り訂正 M、必要最小のバージョン、モジュールは整数倍で表示します（にじまない）。
@@ -144,8 +148,8 @@ No INTERNET permission, no analytics. MIT © zmlworks.
       保護したコードも普通の文字で書き出されるので、ファイルの扱いに注意してください。読み込み（インポート）はありません。
 
 ## 変更履歴 / Changelog
-- **0.9.0**: 「Create this QR code」を「Recreate this code」に変更。QR 以外のコードは元の形式で再現し、「Show as QR code」を別に追加。
-  / "Create this QR code" is now "Recreate this code": non-QR codes are redrawn in their original format, with a separate "Show as QR code".
+- **0.9.0**: 「Create this QR code」を「Recreate this code」に変更。QR 以外のコードは元の形式で再現し、「Show as QR code」を別に追加。QR 以外ではアイコンをバーコードの形にし、再現できないときは行を灰色（押せない）に。メモの「(saved automatically)」と明るさ確認の説明文を削除。
+  / "Create this QR code" is now "Recreate this code": non-QR codes are redrawn in their original format (barcode icon; greyed out when the format or text can't be recreated), with a separate "Show as QR code". Simpler texts: no "(saved automatically)" on the memo, "Max brightness?" without explanation.
 
 ## ビルド
 ```

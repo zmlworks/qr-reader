@@ -530,7 +530,6 @@ public class ScreensTest {
         RecreateActivity r = recreateFrom(d);
         assertNotNull(r.code);
         assertEquals(com.google.zxing.BarcodeFormat.EAN_13, r.code.format);
-        assertEquals(View.GONE, r.findViewById(R.id.code_message).getVisibility());
         shot(r, "recreate-ean13", null);
         // tap asks before max brightness
         r.findViewById(R.id.code_box).performClick();
@@ -561,21 +560,33 @@ public class ScreensTest {
         shot(r, "recreate-datamatrix", null);
     }
 
-    @Test public void recreateUnsupportedAndInvalid() throws Exception {
-        RecreateActivity r = recreateFrom(nonQrDetail("0101234567890128", "DataBar"));
-        assertEquals(null, r.code);
-        assertEquals(View.VISIBLE, r.findViewById(R.id.code_message).getVisibility());
-        assertEquals(View.GONE, r.findViewById(R.id.code_box).getVisibility());
-        shot(r, "recreate-unsupported", null);
+    @Test public void recreateUnsupportedAndInvalidGreyedOut() throws Exception {
+        DetailActivity d = nonQrDetail("0101234567890128", "DataBar");
+        TextView row = d.findViewById(R.id.act_qr);
+        assertTrue(!row.isEnabled());
+        assertTrue(!row.isClickable());
+        assertTrue(row.getAlpha() < 1f);
+        row.performClick();
+        assertEquals(null, shadowOf(d).getNextStartedActivity());
+        shot(d, "detail-recreate-unsupported", null);
         // Show as QR code still works
-        r.findViewById(R.id.act_show_qr).performClick();
-        Intent toMain = shadowOf(r).getNextStartedActivity();
+        d.findViewById(R.id.act_show_qr).performClick();
+        Intent toMain = shadowOf(d).getNextStartedActivity();
         MainActivity m = Robolectric.buildActivity(MainActivity.class, toMain).setup().get();
         assertEquals("0101234567890128", m.createPage.textForTest());
-        RecreateActivity bad = recreateFrom(nonQrDetail("4006381333932", "EAN-13"));   // wrong check digit
-        assertEquals(null, bad.code);
-        assertEquals(bad.getString(R.string.recreate_invalid, "EAN-13"), ((TextView) bad.findViewById(R.id.code_message)).getText().toString());
-        shot(bad, "recreate-invalid", null);
+        DetailActivity bad = nonQrDetail("4006381333932", "EAN-13");   // wrong check digit
+        assertTrue(!((TextView) bad.findViewById(R.id.act_qr)).isEnabled());
+        assertEquals(View.VISIBLE, bad.findViewById(R.id.act_show_qr).getVisibility());
+    }
+
+    @Test public void recreateRowIcon() throws Exception {
+        DetailActivity d = nonQrDetail("4006381333931", "EAN-13");
+        TextView row = d.findViewById(R.id.act_qr);
+        assertTrue(row.isEnabled());
+        assertEquals(R.drawable.ic_barcode, shadowOf(row.getCompoundDrawablesRelative()[0]).getCreatedFromResId());
+        Intent i = new Intent(RuntimeEnvironment.getApplication(), DetailActivity.class).putExtra(DetailActivity.EXTRA_ID, jp);
+        DetailActivity q = Robolectric.buildActivity(DetailActivity.class, i).setup().get();
+        assertEquals(R.drawable.ic_qr, shadowOf(((TextView) q.findViewById(R.id.act_qr)).getCompoundDrawablesRelative()[0]).getCreatedFromResId());
     }
 
     @Test public void detailNonQrShowAsQr() throws Exception {
@@ -1197,6 +1208,7 @@ public class ScreensTest {
         box.performClick();
         AlertDialog confirm = m.createPage.brightDialog;
         assertTrue(confirm != null && confirm.isShowing());
+        shot(m, "create-brightness-confirm", null, confirm);
         confirm.getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
         ShadowLooper.idleMainLooper();
         assertEquals(android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE, m.getWindow().getAttributes().screenBrightness, 0f);

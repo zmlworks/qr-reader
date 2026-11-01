@@ -65,7 +65,6 @@ final class CreatePage {
         }
         brightDialog = new AlertDialog.Builder(a)
                 .setTitle(R.string.brightness_confirm_title)
-                .setMessage(R.string.brightness_confirm_message)
                 .setPositiveButton(R.string.ok, (d, w) -> setBright(true, true))
                 .setNegativeButton(R.string.cancel, null)
                 .show();

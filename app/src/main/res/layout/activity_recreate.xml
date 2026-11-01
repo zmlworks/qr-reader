@@ -86,16 +86,6 @@
             </FrameLayout>
 
             <!-- the format cannot be written, or the text does not fit it -->
-            <TextView
-                android:id="@+id/code_message"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@drawable/card_bg"
-                android:gravity="center"
-                android:padding="24dp"
-                android:textColor="@color/text"
-                android:textSize="16sp"
-                android:visibility="gone" />
 
             <LinearLayout
                 android:layout_width="match_parent"

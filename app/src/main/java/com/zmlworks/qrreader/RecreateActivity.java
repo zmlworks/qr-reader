@@ -12,8 +12,8 @@ import android.widget.TextView;
 /**
  * "Recreate this code" for a non-QR item: the code in its original format (white card, quiet zones, as wide as the
  * screen, the text below it). Tapping the code asks before maximum brightness, like the Create page; tapping again
- * restores normal brightness. A format ZXing cannot write, or text that does not fit the format, shows a message.
- * "Show as QR code" is always offered.
+ * restores normal brightness. Only opened for codes that
+ * can be recreated (the Detail page greys the row out otherwise). "Show as QR code" is always offered.
  */
 public final class RecreateActivity extends BaseActivity {
     static final String EXTRA_FORMAT = "format", EXTRA_TEXT = "text";
@@ -39,20 +39,15 @@ public final class RecreateActivity extends BaseActivity {
         ((TextView) findViewById(R.id.title)).setText(format);
         findViewById(R.id.btn_back).setOnClickListener(v -> finish());
         hint = findViewById(R.id.code_hint);
-        TextView msg = findViewById(R.id.code_message);
-        String error = null;
         try {
             code = Recreate.encode(format, s);
-            if (code == null) error = getString(R.string.cannot_recreate, format);
         } catch (Recreate.InvalidContent ex) {
-            error = getString(R.string.recreate_invalid, format);
+            code = null;
         }
+        if (code == null) { finish(); return; }   // the Detail page greys the row out, so this is not reached
         CodeView cv = findViewById(R.id.code);
         cv.setCode(code);
-        findViewById(R.id.code_box).setVisibility(code != null ? View.VISIBLE : View.GONE);
         ((TextView) findViewById(R.id.code_text)).setText(s);
-        msg.setVisibility(error != null ? View.VISIBLE : View.GONE);
-        msg.setText(error);
         findViewById(R.id.code_box).setOnClickListener(v -> onCodeTap());
         findViewById(R.id.act_show_qr).setOnClickListener(v -> {
             startActivity(new Intent(this, MainActivity.class).putExtra(MainActivity.EXTRA_CREATE_TEXT, s)
@@ -65,7 +60,6 @@ public final class RecreateActivity extends BaseActivity {
         if (bright) { setBright(false, true); return; }
         brightDialog = new AlertDialog.Builder(this)
                 .setTitle(R.string.brightness_confirm_title)
-                .setMessage(R.string.brightness_confirm_message_code)
                 .setPositiveButton(R.string.ok, (d, w) -> setBright(true, true))
                 .setNegativeButton(R.string.cancel, null)
                 .show();

@@ -74,7 +74,12 @@
     <string name="share_text">Share text</string>
     <string name="copy">Copy</string>
     <string name="search_web">Search the web</string>
-    <string name="create_this_qr">Create this QR code</string>
+    <string name="recreate_code">Recreate this code</string>
+    <string name="show_as_qr">Show as QR code</string>
+    <string name="cannot_recreate">This format can\'t be recreated (%1$s).\nYou can still show the text as a QR code.</string>
+    <string name="recreate_invalid">This text can\'t be encoded as %1$s.\nYou can still show it as a QR code.</string>
+    <string name="brightness_toggle_code">Barcode. Tap to switch the screen brightness</string>
+    <string name="brightness_confirm_message_code">Raise the screen brightness to maximum so the code is easier to scan?</string>
     <string name="rename">Name this item</string>
     <string name="name_hint">Name</string>
     <string name="name_help">Shown in the history instead of the text. Leave empty to remove the name.</string>

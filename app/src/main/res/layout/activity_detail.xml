@@ -165,7 +165,15 @@
                     android:id="@+id/act_qr"
                     style="@style/ActionRow"
                     android:drawableStart="@drawable/ic_qr"
-                    android:text="@string/create_this_qr" />
+                    android:text="@string/recreate_code" />
+
+                <!-- non-QR items only: the text as a QR code on the Create page -->
+                <TextView
+                    android:id="@+id/act_show_qr"
+                    style="@style/ActionRow"
+                    android:drawableStart="@drawable/ic_qr"
+                    android:text="@string/show_as_qr"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <!-- memo: saved as you type -->

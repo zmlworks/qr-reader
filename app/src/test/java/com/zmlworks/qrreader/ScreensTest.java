@@ -407,8 +407,9 @@ public class ScreensTest {
         assertTrue((text.getPaintFlags() & Paint.UNDERLINE_TEXT_FLAG) != 0);
         // Copy is its own card; Share / Search / Create QR are a separate group
         android.widget.LinearLayout rows = d.findViewById(R.id.actions);
-        String[] labels = {d.getString(R.string.share_text), d.getString(R.string.search_web), d.getString(R.string.create_this_qr)};
-        assertEquals(3, rows.getChildCount());
+        String[] labels = {d.getString(R.string.share_text), d.getString(R.string.search_web), d.getString(R.string.recreate_code)};
+        assertEquals(4, rows.getChildCount());   // + "Show as QR code", hidden for QR items
+        assertEquals(View.GONE, d.findViewById(R.id.act_show_qr).getVisibility());
         for (int k = 0; k < 3; k++) assertEquals(labels[k], ((TextView) rows.getChildAt(k)).getText().toString());
         assertEquals(d.getString(R.string.copy), ((TextView) d.findViewById(R.id.act_copy)).getText().toString());
         shot(d, "detail-url", null);
@@ -491,7 +492,7 @@ public class ScreensTest {
         assertTrue(d.isNight());
         assertEquals(View.VISIBLE, d.findViewById(R.id.fields).getVisibility());
         android.widget.LinearLayout rows = d.findViewById(R.id.actions);
-        assertEquals(5, rows.getChildCount());   // connect, copy password + share + search + create
+        assertEquals(6, rows.getChildCount());   // connect, copy password + share + search + recreate (+ hidden show-as-QR)
         assertEquals(d.getString(R.string.wifi_connect), ((TextView) rows.getChildAt(0)).getText().toString());
         assertEquals(d.getString(R.string.copy_password), ((TextView) rows.getChildAt(1)).getText().toString());
         assertEquals("Café guest Wi-Fi", ((TextView) d.findViewById(R.id.name)).getText().toString());
@@ -506,6 +507,84 @@ public class ScreensTest {
         MainActivity m = Robolectric.buildActivity(MainActivity.class, toMain).setup().get();
         assertEquals(MainActivity.TAB_CREATE, m.tabForTest());
         assertEquals("こんにちは、世界！ QR コードのテスト", m.createPage.textForTest());
+    }
+
+    private DetailActivity nonQrDetail(String text, String format) {
+        long id = h.addSingle(text, System.currentTimeMillis(), format).id;
+        Intent i = new Intent(RuntimeEnvironment.getApplication(), DetailActivity.class).putExtra(DetailActivity.EXTRA_ID, id);
+        return Robolectric.buildActivity(DetailActivity.class, i).setup().get();
+    }
+
+    private RecreateActivity recreateFrom(DetailActivity d) {
+        assertEquals(View.VISIBLE, d.findViewById(R.id.act_show_qr).getVisibility());
+        assertEquals(d.getString(R.string.recreate_code), ((TextView) d.findViewById(R.id.act_qr)).getText().toString());
+        d.findViewById(R.id.act_qr).performClick();
+        Intent next = shadowOf(d).getNextStartedActivity();
+        assertEquals(RecreateActivity.class.getName(), next.getComponent().getClassName());
+        return Robolectric.buildActivity(RecreateActivity.class, next).setup().get();
+    }
+
+    @Test public void recreateEan13() throws Exception {
+        DetailActivity d = nonQrDetail("4006381333931", "EAN-13");
+        shot(d, "detail-non-qr-actions", null);
+        RecreateActivity r = recreateFrom(d);
+        assertNotNull(r.code);
+        assertEquals(com.google.zxing.BarcodeFormat.EAN_13, r.code.format);
+        assertEquals(View.GONE, r.findViewById(R.id.code_message).getVisibility());
+        shot(r, "recreate-ean13", null);
+        // tap asks before max brightness
+        r.findViewById(R.id.code_box).performClick();
+        assertTrue(r.brightDialog.isShowing());
+        shot(r, "recreate-ean13-brightness-confirm", null, r.brightDialog);
+        r.brightDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        ShadowLooper.idleMainLooper();
+        assertTrue(r.brightForTest());
+        r.findViewById(R.id.code_box).performClick();
+        assertTrue(!r.brightForTest());
+    }
+
+    @Test public void recreateCode128Dark() throws Exception {
+        App.get().prefs().setDark(true);
+        RecreateActivity r = recreateFrom(nonQrDetail("QUIET-QR 0.9.0", "Code 128"));
+        assertEquals(com.google.zxing.BarcodeFormat.CODE_128, r.code.format);
+        shot(r, "recreate-code128-dark", null);
+    }
+
+    @Test public void recreateCode128() throws Exception {
+        RecreateActivity r = recreateFrom(nonQrDetail("QUIET-QR 0.9.0", "Code 128"));
+        shot(r, "recreate-code128", null);
+    }
+
+    @Test public void recreateDataMatrix() throws Exception {
+        RecreateActivity r = recreateFrom(nonQrDetail("https://github.com/zmlworks/qr-reader", "DataMatrix"));
+        assertEquals(com.google.zxing.BarcodeFormat.DATA_MATRIX, r.code.format);
+        shot(r, "recreate-datamatrix", null);
+    }
+
+    @Test public void recreateUnsupportedAndInvalid() throws Exception {
+        RecreateActivity r = recreateFrom(nonQrDetail("0101234567890128", "DataBar"));
+        assertEquals(null, r.code);
+        assertEquals(View.VISIBLE, r.findViewById(R.id.code_message).getVisibility());
+        assertEquals(View.GONE, r.findViewById(R.id.code_box).getVisibility());
+        shot(r, "recreate-unsupported", null);
+        // Show as QR code still works
+        r.findViewById(R.id.act_show_qr).performClick();
+        Intent toMain = shadowOf(r).getNextStartedActivity();
+        MainActivity m = Robolectric.buildActivity(MainActivity.class, toMain).setup().get();
+        assertEquals("0101234567890128", m.createPage.textForTest());
+        RecreateActivity bad = recreateFrom(nonQrDetail("4006381333932", "EAN-13"));   // wrong check digit
+        assertEquals(null, bad.code);
+        assertEquals(bad.getString(R.string.recreate_invalid, "EAN-13"), ((TextView) bad.findViewById(R.id.code_message)).getText().toString());
+        shot(bad, "recreate-invalid", null);
+    }
+
+    @Test public void detailNonQrShowAsQr() throws Exception {
+        DetailActivity d = nonQrDetail("4006381333931", "EAN-13");
+        d.findViewById(R.id.act_show_qr).performClick();
+        Intent toMain = shadowOf(d).getNextStartedActivity();
+        MainActivity m = Robolectric.buildActivity(MainActivity.class, toMain).setup().get();
+        assertEquals(MainActivity.TAB_CREATE, m.tabForTest());
+        assertEquals("4006381333931", m.createPage.textForTest());
     }
 
     @Test public void create() throws Exception {
@@ -2144,7 +2223,7 @@ public class ScreensTest {
         assertTrue(!App.get().holdForeground);
         org.json.JSONObject o = new org.json.JSONObject(bytes.toString("UTF-8"));
         assertEquals(10, o.getJSONArray("items").length());
-        assertEquals("0.8.4", o.getString("appVersion"));
+        assertEquals("0.9.0", o.getString("appVersion"));
         assertEquals("Exported 10 codes", org.robolectric.shadows.ShadowToast.getTextOfLatestToast());
         // nothing protected: no prompt at all
         h.setProtected(wifi, false);

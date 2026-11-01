@@ -38,6 +38,9 @@
             android:name=".DetailActivity"
             android:exported="false" />
         <activity
+            android:name=".RecreateActivity"
+            android:exported="false" />
+        <activity
             android:name=".CodesActivity"
             android:exported="false" />
     </application>

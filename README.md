@@ -30,7 +30,7 @@ History shows the full date, custom names (in bold), favorites, swipe-to-delete 
 search and a "2 protected items hidden · Unlock" line lets you authenticate; during the 60 s grace they are searched and shown
 normally (lists show them in full with a small lock, and blur again live when the grace ends). Swipe-deleting a protected code
 needs authentication too. Favorites can be reordered by dragging the ≡ handle; the order is kept. The detail page lets you name
-an item and write a memo (autosaved), shows URLs as links (with an optional confirmation before the browser opens), has Copy / share / web search / create QR as full-width rows. Create shows a QR code that updates with every
+an item and write a memo (autosaved), shows URLs as links (with an optional confirmation before the browser opens), has Copy / share / web search / "Recreate this code" as full-width rows. For a non-QR code, "Recreate this code" redraws it in its original format (EAN-13/ISBN, EAN-8, UPC-A, UPC-E, Code 128, Code 39, Code 93, Codabar, ITF/ITF-14, DataMatrix, Aztec, PDF417) on white with quiet zones and the text below (tap asks before max brightness); other formats say "This format can't be recreated", and a separate "Show as QR code" row shows the text as a QR code. Create shows a QR code that updates with every
 character you type, with the input right under it, and a small "Save to history" button between them (saved as a "Created" item
 whose detail shows the QR). The search engine is always https; a leading http(s):// is stripped when you press OK (`www.google.com/search?q=%s`).
 Long-press About & licenses to export the whole history as one JSON file (after authentication when it has protected codes).
@@ -43,7 +43,7 @@ No INTERNET permission, no analytics. MIT © zmlworks.
 （画面はテスト用にJVM上で描画したもの (Robolectric)。カメラ映像の部分は合成画像です。ほかの画面は [docs/screenshots](docs/screenshots) にあります。）
 
 ## 入手
-[Releases](https://github.com/zmlworks/qr-reader/releases) の `quiet-qr-0.8.4.apk` をインストールしてください（Android 8.0 以上）。
+[Releases](https://github.com/zmlworks/qr-reader/releases) の `quiet-qr-0.9.0.apk` をインストールしてください（Android 8.0 以上）。
 署名証明書 SHA-256: `2E:F7:FF:51:8A:B0:76:54:47:F4:D2:BD:9C:C4:8C:E6:02:1F:EC:08:FD:47:6F:1F:7D:AB:6F:BB:98:08:68:DE`
 
 ## 使い方
@@ -93,10 +93,15 @@ No INTERNET permission, no analytics. MIT © zmlworks.
     🗑 で消すと履歴に戻って UNDO が出ます。UNDO を押すと元に戻り、その詳細画面に戻ります。
   - URL は青い下線付きのリンクで表示し、タップするとブラウザで開きます（設定によって確認ダイアログあり）。
   - 本文のすぐ下の右に小さな「Copy」ボタン（クリップボードにコピー）。
-  - その下に 1 行ずつ: 「Share text」「Search the web」（設定の検索 URL で検索）「Create this QR code」。
+  - その下に 1 行ずつ: 「Share text」「Search the web」（設定の検索 URL で検索）「Recreate this code」（コードを再現する）。
+    QR コードならこれまでどおり作成画面に QR コードを出します。QR 以外のコードは、読み取ったときと同じ形式で表示し、別の行「Show as QR code」で QR コードとしても表示できます（下の「コードの再現」）。
   - いちばん下に「Memo」欄（複数行）。入力すると自動で保存し、検索の対象にもなります。保護した項目では、認証してから（詳細を開けたときだけ）表示します。
   - 作成画面で保存した項目（Created）は、上に QR コードを表示します。
   - tel: / mailto: / SMS / geo: / Wi-Fi には、それぞれの行（電話、メール、地図、Wi-Fi 接続とパスワードのコピー）が上に加わります。
+- **コードの再現（QR 以外）**: 「Recreate this code」で、読み取ったときの形式のまま白い背景に描きます（画面の幅いっぱい、余白（クワイエットゾーン）付き、下に文字）。
+  - 対応形式: EAN-13（ISBN を含む）、EAN-8、UPC-A、UPC-E、Code 128、Code 39（Code 32・PZN は内容が Code 39 として正しいときだけ Code 39 で描きます）、Code 93、Codabar、ITF（ITF-14 を含む）、DataMatrix、Aztec、PDF417。
+  - DataBar、Telepen、DX Film Edge、EAN のアドオン、MaxiCode、MicroPDF417、Micro QR、rMQR は「This format can't be recreated」と出します。内容が形式に合わない（チェックデジットの誤りなど）ときもメッセージを出します。どちらの場合も「Show as QR code」は使えます。
+  - コードをタップすると、作成画面と同じく確認してから画面を最大の明るさにします（もう一度タップで通常に戻り、画面を離れても戻ります）。
 - **保護（鍵）**: 詳細画面の鍵ボタンで、その項目を保護します（塗りつぶしの鍵 = 保護中）。
   - 保護をオンにするのに認証は要りません。ただし端末に画面ロック（PIN・パターン・パスワード）がないとオンにできず、設定を開くボタンを出します。
   - 保護した項目を開く、左スワイプでコピーする、保護を外すときは、指紋・顔認証か画面ロックで確認します。
@@ -138,6 +143,10 @@ No INTERNET permission, no analytics. MIT © zmlworks.
       内容・形式・日時・名前・メモ・お気に入り・保護・Created・まとまり・お気に入りの並び順を含みます。保護したコードがあれば先に認証が要ります（60 秒の猶予あり）。
       保護したコードも普通の文字で書き出されるので、ファイルの扱いに注意してください。読み込み（インポート）はありません。
 
+## 変更履歴 / Changelog
+- **0.9.0**: 「Create this QR code」を「Recreate this code」に変更。QR 以外のコードは元の形式で再現し、「Show as QR code」を別に追加。
+  / "Create this QR code" is now "Recreate this code": non-QR codes are redrawn in their original format, with a separate "Show as QR code".
+
 ## ビルド
 ```
 ./gradlew testDebugUnitTest lintDebug assembleDebug assembleRelease
@@ -145,7 +154,7 @@ No INTERNET permission, no analytics. MIT © zmlworks.
 - JDK 17、Android SDK 35、Gradle 8.9、AGP 8.7.3。AndroidX はアプリには入っていません（テストの Robolectric だけ）。
 - リリース署名の鍵はリポジトリの外にあります（環境変数 `ZML_KEYSTORE_PROPS` で指定するプロパティファイル）。鍵がなければ未署名でビルドされます。
 - リリース APK のネイティブライブラリは arm64-v8a / armeabi-v7a だけです。ほかの ABI では Java 版 ZXing で読み取ります（QR のみ）。
-- `app/src/test`: 種類判定、検索 URL（https 固定と移行）、履歴（UNDO・名前・メモ・保護・形式・お気に入りと並び順・Created・検索・保護したコードを残す削除・0.1〜0.6 の履歴の読み込みを含む）、書き出し、バーコード形式名、日付の形式、日付ジャンプ、QR 生成→ZXing で読み戻し、画像からの読み取り、スキャン判定、ズーム、画面テストとスクリーンショット。
+- `app/src/test`: 種類判定、検索 URL（https 固定と移行）、履歴（UNDO・名前・メモ・保護・形式・お気に入りと並び順・Created・検索・保護したコードを残す削除・0.1〜0.6 の履歴の読み込みを含む）、書き出し、バーコード形式名、日付の形式、日付ジャンプ、QR 生成→ZXing で読み戻し、コードの再現（形式の対応と各形式の生成→読み戻し）、画像からの読み取り、スキャン判定、ズーム、画面テストとスクリーンショット。
 - `art/`: アイコンの加工スクリプト（白い背景と影を除き、透明な角丸四角だけを切り出す）。
 
 ## ライセンス

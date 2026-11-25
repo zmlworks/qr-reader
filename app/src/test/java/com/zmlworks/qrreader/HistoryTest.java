@@ -321,6 +321,17 @@ public class HistoryTest {
         History p = History.parse(h.serialize());
         assertTrue(p.get(c.id).created);
         assertFalse(p.get(s.id).created);
+        // same text, different format: a new item; same text and format as the newest: ignored
+        assertEquals(History.SAVED, h.saveCreated("4006381333931", 16, "EAN-13"));
+        History.Entry ean = h.topLevel().get(0);
+        assertTrue(ean.created);
+        assertEquals("EAN-13", ean.format);
+        assertEquals(History.SAVE_DUPLICATE, h.saveCreated("4006381333931", 17, "EAN-13"));
+        assertEquals(History.SAVED, h.saveCreated("4006381333931", 18, "Code 128"));
+        assertEquals(History.SAVED, h.saveCreated("4006381333931", 19, null));   // a QR of the same digits
+        History q = History.parse(h.serialize());
+        assertEquals("EAN-13", q.get(ean.id).format);
+        assertTrue(q.get(ean.id).created);
     }
 
     @Test public void searchFilterLockedAndUnlocked() {

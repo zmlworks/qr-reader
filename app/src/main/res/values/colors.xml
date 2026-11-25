@@ -21,4 +21,5 @@
     <color name="snack">#FF2C2A33</color>
     <color name="edge">#00000000</color>
     <color name="link">#FF1A5FD0</color>
+    <color name="named">#FF1A5FD0</color>
 </resources>

@@ -90,18 +90,22 @@ public final class History {
         return e;
     }
 
-    /** "Save to history" on the Create page: blank text or the same text as the newest saved item are ignored. */
+    /** "Save to history" on the Create page (and Recreate): blank text or the same text and format as the newest saved item are ignored. */
     public static final int SAVED = 0, SAVE_EMPTY = 1, SAVE_DUPLICATE = 2;
 
-    public int saveCreated(String text, long now) {
+    public int saveCreated(String text, long now) { return saveCreated(text, now, null); }
+
+    /** @param format barcode format for non-QR codes (null = QR) */
+    public int saveCreated(String text, long now, String format) {
         if (text == null || text.trim().isEmpty()) return SAVE_EMPTY;
         List<Entry> top = topLevel();
         if (!top.isEmpty()) {
             Entry n = top.get(0);
-            if (n.kind == SINGLE && n.created && n.text.equals(text)) return SAVE_DUPLICATE;
+            if (n.kind == SINGLE && n.created && n.text.equals(text) && eq(n.format, format)) return SAVE_DUPLICATE;
         }
         Entry e = new Entry(nextId++, 0, SINGLE, now, false, text);
         e.created = true;
+        e.format = format;
         entries.add(e);
         changed();
         return SAVED;

@@ -17,8 +17,8 @@ import android.widget.ListView;
  * {@link Callback#onSwipeLeft} (copy). A row needs a child {@code R.id.row_content} that moves, and may have
  * {@code R.id.row_bg_right} / {@code R.id.row_bg_left} (shown behind it while swiping right / left).
  * <p>
- * A swipe counts when the row is let go past {@link #SWIPE_FRACTION} of the width, or flung after at least
- * {@link #FLING_FRACTION} of it. With {@link #setDragCallback} set, a press on a visible {@code R.id.row_handle}
+ * A swipe counts when the row is let go at or past {@link #SWIPE_FRACTION} of the width, or flung after at least
+ * {@link #FLING_FRACTION} of it. The row stops at that threshold; the action colour is faded until then, full at the stop. With {@link #setDragCallback} set, a press on a visible {@code R.id.row_handle}
  * (and only there) drags the row up or down instead (manual order of the Favorites tab).
  */
 public final class SwipeListView extends ListView {
@@ -155,8 +155,7 @@ public final class SwipeListView extends ListView {
         float dx = e.getX() - downX;
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_MOVE:
-                content.setTranslationX(dx);
-                show(row, dx);
+                dragTo(dx);
                 return true;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL: {
@@ -191,15 +190,44 @@ public final class SwipeListView extends ListView {
         }
     }
 
-    /** A row let go `dx` px towards a side (positive) at velocity `v` (px/s, positive = that side) on a list `w` px wide. */
-    static boolean isSwipe(float dx, float v, int w, int minFling) {
-        return dx > w * SWIPE_FRACTION || (dx > w * FLING_FRACTION && v > minFling);
+    private void dragTo(float dx) {
+        int w = getWidth();
+        float tx = clampSwipe(dx, w);
+        content.setTranslationX(tx);
+        show(row, tx, w);
     }
 
-    private static void show(View row, float dx) {
+    /** A row let go `dx` px towards a side (positive) at velocity `v` (px/s, positive = that side) on a list `w` px wide. */
+    static boolean isSwipe(float dx, float v, int w, int minFling) {
+        return dx >= w * SWIPE_FRACTION || (dx > w * FLING_FRACTION && v > minFling);
+    }
+
+    /** The row cannot be dragged past the commit threshold. */
+    static float clampSwipe(float dx, int w) {
+        float max = w * SWIPE_FRACTION;
+        if (dx > max) return max;
+        if (dx < -max) return -max;
+        return dx;
+    }
+
+    /** 0 at rest, 1 at or past the threshold. */
+    static float swipeBgAlpha(float dx, int w) {
+        float max = w * SWIPE_FRACTION;
+        if (max <= 0) return 0f;
+        return Math.min(1f, Math.abs(dx) / max);
+    }
+
+    private static void show(View row, float dx, int w) {
         View r = row.findViewById(R.id.row_bg_right), l = row.findViewById(R.id.row_bg_left);
-        if (r != null) r.setVisibility(dx > 0 ? VISIBLE : INVISIBLE);
-        if (l != null) l.setVisibility(dx < 0 ? VISIBLE : INVISIBLE);
+        float a = swipeBgAlpha(dx, w);
+        if (r != null) {
+            r.setVisibility(dx > 0 ? VISIBLE : INVISIBLE);
+            r.setAlpha(dx > 0 ? a : 1f);
+        }
+        if (l != null) {
+            l.setVisibility(dx < 0 ? VISIBLE : INVISIBLE);
+            l.setAlpha(dx < 0 ? a : 1f);
+        }
     }
 
     /** Puts a (recycled) row back to rest. */
@@ -207,6 +235,6 @@ public final class SwipeListView extends ListView {
         if (row == null) return;
         View c = row.findViewById(R.id.row_content);
         if (c != null) { c.animate().cancel(); c.setTranslationX(0); }
-        show(row, 0);
+        show(row, 0, 1);
     }
 }

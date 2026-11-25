@@ -19,6 +19,7 @@
     <color name="copy">#FF5E8FE6</color>
     <color name="snack">#FF363C52</color>
     <color name="link">#FF8DB4FF</color>
+    <color name="named">#FF8DB4FF</color>
     <color name="created">#FFB48CFF</color>
     <color name="created_bg">#447B3FD4</color>
 </resources>

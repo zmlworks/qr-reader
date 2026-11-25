@@ -25,14 +25,14 @@ Tapping the QR on the Create page asks before raising brightness to maximum (tap
 day / month / year wheels. Dates follow the Date format setting (DD/MM/YYYY by default, MM/DD/YYYY or YYYY/MM/DD), everywhere,
 including the order of the wheels. Settings has Clear all history: favorites and protected codes are kept unless you tick "incl. favorites" /
 "incl. protected", and you confirm by sliding. It also has "[Scan non-QR once]" (only the text itself reacts to taps), a one-time scan for every other barcode type (no QR, Micro QR or rMQR).
-History shows the full date, custom names (in bold), favorites, swipe-to-delete with UNDO and swipe-to-copy, and a search
+History shows the full date, custom names (in blue, slightly heavier than the other rows), favorites, swipe-to-delete with UNDO and swipe-to-copy, and a search
 (🔍 in the top bar) that filters as you type on text, name, memo and format. While locked, protected codes are left out of the
 search and a "2 protected items hidden · Unlock" line lets you authenticate; during the 60 s grace they are searched and shown
 normally (lists show them in full with a small lock, and blur again live when the grace ends). Swipe-deleting a protected code
 needs authentication too. Favorites can be reordered by dragging the ≡ handle; the order is kept. The detail page lets you name
-an item and write a memo, shows URLs as links (with an optional confirmation before the browser opens), has Copy / share / web search / "Recreate this code" as full-width rows. For a non-QR code, "Recreate this code" redraws it in its original format (EAN-13/ISBN, EAN-8, UPC-A, UPC-E, Code 128, Code 39, Code 93, Codabar, ITF/ITF-14, DataMatrix, Aztec, PDF417) on white with quiet zones and the text below (tap asks "Max brightness?"); for other formats, or text that does not fit the format, the row is greyed out, and a separate "Show as QR code" row shows the text as a QR code. Create shows a QR code that updates with every
-character you type, with the input right under it, and a small "Save to history" button between them (saved as a "Created" item
-whose detail shows the QR). The search engine is always https; a leading http(s):// is stripped when you press OK (`www.google.com/search?q=%s`).
+an item and write a memo, shows URLs as links (with an optional confirmation before the browser opens), has Copy / share / web search / "Recreate this code" as full-width rows. For a non-QR code, "Recreate this code" redraws it in its original format (EAN-13/ISBN, EAN-8, UPC-A, UPC-E, Code 128, Code 39, Code 93, Codabar, ITF/ITF-14, DataMatrix, Aztec, PDF417) on white with quiet zones and the text below (tap asks "Max brightness?"); for other formats, or text that does not fit the format, the row is greyed out, and a separate "Show as QR code" row shows the text as a QR code. Create shows a symbol that updates with every
+character you type, with the input right under it, a small "Save to history" button between them, and a small format switch under the input
+(QR, Code 128, EAN-13 / JAN; invalid 1D input shows a short note). Saved items keep their format. The Recreate screen has the same "Save to history" action. The search engine is always https; a leading http(s):// is stripped when you press OK (`www.google.com/search?q=%s`).
 Long-press About & licenses to export the whole history as one JSON file (after authentication when it has protected codes).
 No INTERNET permission, no analytics. MIT © zmlworks.
 
@@ -47,7 +47,7 @@ No INTERNET permission, no analytics. MIT © zmlworks.
 （画面はテスト用にJVM上で描画したもの (Robolectric)。カメラ映像の部分は合成画像です。ほかの画面は [docs/screenshots](docs/screenshots) にあります。）
 
 ## 入手
-[Releases](https://github.com/zmlworks/qr-reader/releases) の `quiet-qr-0.9.0.apk` をインストールしてください（Android 8.0 以上）。
+[Releases](https://github.com/zmlworks/qr-reader/releases) の `quiet-qr-0.10.0.apk` をインストールしてください（Android 8.0 以上）。
 署名証明書 SHA-256: `2E:F7:FF:51:8A:B0:76:54:47:F4:D2:BD:9C:C4:8C:E6:02:1F:EC:08:FD:47:6F:1F:7D:AB:6F:BB:98:08:68:DE`
 
 ## 使い方
@@ -76,7 +76,7 @@ No INTERNET permission, no analytics. MIT © zmlworks.
 
 ### 履歴 / 作成 / 設定（下のタブ）
 読み取りに戻るには戻るボタンを押します（履歴と設定では右上のアイコンからも戻れます）。
-- **History**: 新しい順で、日付と時刻（`17/10/2026 14:05` のように、設定の Date format に従います）を表示します。名前を付けた項目は、内容の代わりに名前を太字で表示します。
+- **History**: 新しい順で、日付と時刻（`17/10/2026 14:05` のように、設定の Date format に従います）を表示します。名前を付けた項目は、内容の代わりに名前を青字で、少しだけ太い字で表示します。
   - 右上の 🔍 で検索欄を開き、入力するたびに内容・名前・メモ・形式（EAN-13 など）で絞り込みます（空白で区切ると全部を含むものだけ）。All と Favorites のどちらでも使え、戻るボタンか × で閉じます。
     鍵がかかっている間は、保護した項目は検索に含めず、「2 protected items hidden · Unlock」と出ます（タップで認証）。認証後の 60 秒間は普通に検索します。
   - Favorites では、行の右の ≡ をつかんで上下に動かすと並べ替えられ、その順番を覚えます（≡ 以外からはドラッグしません）。Favorites では日付ジャンプのボタンは出ません。
@@ -86,8 +86,8 @@ No INTERNET permission, no analytics. MIT © zmlworks.
     その日に項目がなければ、それより前でいちばん近い日へ移ります。
   - 履歴の件数に上限はありません（古いものが自動で消えることはありません）。
   - 右へスワイプで削除（UNDO で元に戻せます）、左へスワイプでクリップボードにコピー、タップで詳細。
-    行の幅の 55% 以上（勢いよく払うときは 30% 以上）動かすと反応します。保護した項目（と保護したコードを含むまとまり）の削除は、60 秒の猶予中でなければ認証が要ります。
-  - 作成画面で保存した項目は、日時の横に「Created」と出ます。
+    行は判定の位置（幅の 55%）で止まり、そこまでは背景の色が薄く、止まったところで本来の色になります。勢いよく払うときは 30% 以上で反応します。保護した項目（と保護したコードを含むまとまり）の削除は、60 秒の猶予中でなければ認証が要ります。
+  - 作成画面で保存した項目は、日時の横に「Created」と出ます。QR 以外で保存したものは、左の印に形式も出ます。
   - QR 以外のコード（隠しモードで読んだもの）は、左の印に「EAN-13」などの形式を表示します。
   - 保護した項目は、鍵の印、ぼかした仮の文字の行、日時を表示します。内容・名前・種類は出しません。
     ぼかしの下に本物の文字はありません。行の長さも内容とは関係ありません。
@@ -100,12 +100,12 @@ No INTERNET permission, no analytics. MIT © zmlworks.
   - その下に 1 行ずつ: 「Share text」「Search the web」（設定の検索 URL で検索）「Recreate this code」（コードを再現する。QR 以外のコードではアイコンが 1 次元バーコードの形）。
     QR コードならこれまでどおり作成画面に QR コードを出します。QR 以外のコードは、読み取ったときと同じ形式で表示し、別の行「Show as QR code」で QR コードとしても表示できます（下の「コードの再現」）。
   - いちばん下に「Memo」欄（複数行）。入力すると自動で保存し、検索の対象にもなります。保護した項目では、認証してから（詳細を開けたときだけ）表示します。
-  - 作成画面で保存した項目（Created）は、上に QR コードを表示します。
+  - 作成画面で保存した QR の項目（Created）は、上に QR コードを表示します。QR 以外で保存した項目は、通常の QR 以外の項目と同じく「Recreate this code」から元の形式で再現できます。
   - tel: / mailto: / SMS / geo: / Wi-Fi には、それぞれの行（電話、メール、地図、Wi-Fi 接続とパスワードのコピー）が上に加わります。
 - **コードの再現（QR 以外）**: 「Recreate this code」で、読み取ったときの形式のまま白い背景に描きます（画面の幅いっぱい、余白（クワイエットゾーン）付き、下に文字）。
   - 対応形式: EAN-13（ISBN を含む）、EAN-8、UPC-A、UPC-E、Code 128、Code 39（Code 32・PZN は内容が Code 39 として正しいときだけ Code 39 で描きます）、Code 93、Codabar、ITF（ITF-14 を含む）、DataMatrix、Aztec、PDF417。
   - DataBar、Telepen、DX Film Edge、EAN のアドオン、MaxiCode、MicroPDF417、Micro QR、rMQR と、内容が形式に合わない（チェックデジットの誤りなど）ときは、「Recreate this code」の行が灰色になり押せません。「Show as QR code」は使えます。
-  - コードをタップすると、作成画面と同じく「Max brightness?」と確認してから画面を最大の明るさにします（もう一度タップで通常に戻り、画面を離れても戻ります）。
+  - コードをタップすると、作成画面と同じく「Max brightness?」と確認してから画面を最大の明るさにします（もう一度タップで通常に戻り、画面を離れても戻ります）。「Save to history」で、同じ内容と形式を履歴の先頭に「Created」として追加できます。
 - **保護（鍵）**: 詳細画面の鍵ボタンで、その項目を保護します（塗りつぶしの鍵 = 保護中）。
   - 保護をオンにするのに認証は要りません。ただし端末に画面ロック（PIN・パターン・パスワード）がないとオンにできず、設定を開くボタンを出します。
   - 保護した項目を開く、左スワイプでコピーする、保護を外すときは、指紋・顔認証か画面ロックで確認します。
@@ -116,14 +116,14 @@ No INTERNET permission, no analytics. MIT © zmlworks.
   - 保護した項目の詳細画面は、スクリーンショットと最近使ったアプリの画面に映りません（FLAG_SECURE）。
   - 「n codes」のまとまりの中の保護したコードは、プレビュー・Copy all・Share all に含めません。右スワイプの削除と UNDO はそのまま使えます。
   - あとで画面ロックを外した場合、保護した項目は確認なしで開きます（その旨のメッセージが出ます）。
-- **Create**: 上に正方形の QR コード、そのすぐ下に入力欄があり、1 文字ごとに QR コードが更新されます。
+- **Create**: 上に正方形の記号、そのすぐ下に入力欄があり、1 文字ごとに更新されます。入力欄の下で形式を QR（初期値）・Code 128・EAN-13 / JAN から選びます。
   - QR コードをタップすると、画面の明るさを最大と通常で切り替えます（最大にするときは「Max brightness?」と確認。約 1 秒「Brightness max / normal」と表示）。
     ほかのタブやアプリに移ると通常の明るさに戻ります。
   - キーボードを開くと下のタブを隠し、QR コードを縮めて、QR コードと入力欄の両方が見えるようにします。
   - 誤り訂正 M、必要最小のバージョン、モジュールは整数倍で表示します（にじまない）。
   - ASCII 以外を含む文字列は UTF-8 のバイトモード（ECI 付き）にします。
-  - QR コードと入力欄の間の小さな「Save to history」で、今の内容を履歴に「Created」として保存します。空のときは押せません。
-    直前に保存したものと同じなら保存せず「Already saved」と出ます。
+  - 記号と入力欄の間の小さな「Save to history」で、今の内容を選んだ形式のまま履歴に「Created」として保存します。空のとき、またはその形式に合わないときは押せません。EAN-13 は 12 桁でも 13 桁でも受け付けます（チェックディジットを計算、または確認します）。合わない入力は、ダイアログではなく入力欄の下に短い注意を出します。
+    直前に保存したものと同じ内容・形式なら保存せず「Already saved」と出ます。
 - **Settings**（オン・オフは右のチェックボックス）:
   - いちばん上: Clear all history（タップに反応するのは「Clear all history」の文字だけ）。右の 2 つのチェックボックス「incl. favorites」「incl. protected」で、
     お気に入り・保護したコードも消すかを選びます（どちらも毎回オフから始まり、覚えません）。オフなら残します。
@@ -148,6 +148,8 @@ No INTERNET permission, no analytics. MIT © zmlworks.
       保護したコードも普通の文字で書き出されるので、ファイルの扱いに注意してください。読み込み（インポート）はありません。
 
 ## 変更履歴 / Changelog
+- **0.10.0**: 履歴の名前付き項目を青字＋やや太字に。スワイプは判定位置で止まり、そこまでは色を薄く。Create に QR / Code 128 / EAN-13 / JAN の形式切り替えを追加（誤り訂正の設定はなし）。再現画面からも履歴に追加できるように。
+  / Named history items are blue and slightly heavy, not bold. A swipe stops at the commit threshold, with the action colour faded until then. Create has a small format switch (QR, Code 128, EAN-13 / JAN). The Recreate screen can save to history.
 - **0.9.0**: 「Create this QR code」を「Recreate this code」に変更。QR 以外のコードは元の形式で再現し、「Show as QR code」を別に追加。QR 以外ではアイコンをバーコードの形にし、再現できないときは行を灰色（押せない）に。メモの「(saved automatically)」と明るさ確認の説明文を削除。
   / "Create this QR code" is now "Recreate this code": non-QR codes are redrawn in their original format (barcode icon; greyed out when the format or text can't be recreated), with a separate "Show as QR code". Simpler texts: no "(saved automatically)" on the memo, "Max brightness?" without explanation.
 

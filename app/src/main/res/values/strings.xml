@@ -113,6 +113,13 @@
     <string name="brightness_max">Brightness max</string>
     <string name="brightness_normal">Brightness normal</string>
     <string name="create_hint">Type text or a URL</string>
+    <string name="create_hint_ean">12 or 13 digits</string>
+    <string name="format_qr">QR</string>
+    <string name="format_code128">Code 128</string>
+    <string name="format_ean13">EAN-13 / JAN</string>
+    <string name="create_invalid_ean">Enter 12 or 13 digits</string>
+    <string name="create_invalid_ean_check">Check digit is not valid</string>
+    <string name="create_invalid_code128">This text cannot be encoded as Code 128</string>
     <string name="create_empty">The QR code appears here as you type.</string>
     <string name="too_long">Too long for one QR code (max. about 2,300 bytes).</string>
     <string name="save_to_history">Save to history</string>

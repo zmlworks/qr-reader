@@ -92,7 +92,15 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:background="@drawable/card_bg"
-                android:orientation="vertical">
+                android:divider="@drawable/row_divider"
+                android:orientation="vertical"
+                android:showDividers="middle">
+
+                <TextView
+                    android:id="@+id/act_save_history"
+                    style="@style/ActionRow"
+                    android:drawableStart="@drawable/ic_history"
+                    android:text="@string/save_to_history" />
 
                 <TextView
                     android:id="@+id/act_show_qr"

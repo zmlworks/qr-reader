@@ -18,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * History tab: All (newest first) / Favorites (manual order: drag the ≡ handle); a named code shows its name in bold.
+ * History tab: All (newest first) / Favorites (manual order: drag the ≡ handle); a named code shows its name in blue, slightly heavy.
  * Swipe right = delete (UNDO; a protected code asks for authentication first), swipe left = copy, tap = detail.
  * The magnifier in the top bar opens a search field that filters the current tab as you type (text, name, memo,
  * format). While locked, protected codes are left out of the search and a line says how many are hidden; inside the
@@ -278,14 +278,19 @@ final class HistoryPage {
      * One code row (history and multi-scan lists): badge, content line, date line. Protected and locked: the lock as
      * badge and a blurred placeholder as content (see {@link Obscured}: no text, name, type or format), the date line
      * as usual. Protected inside the authentication window: the real content, with the lock as badge. A custom name is
-     * bold.
+     * blue and slightly heavy ({@code sans-serif-medium}), not bold.
      */
+    static final Typeface NAME_FACE = Typeface.create("sans-serif-medium", Typeface.NORMAL);
+    static final Typeface NORMAL_FACE = Typeface.create("sans-serif", Typeface.NORMAL);
+
     static void bindCode(Context c, View v, History.Entry e, String sub) {
         TextView badge = v.findViewById(R.id.row_badge), title = v.findViewById(R.id.row_title), subV = v.findViewById(R.id.row_sub);
         boolean hide = e.prot && !Auth.recentlyOk();
         subV.setVisibility(View.VISIBLE);
         subV.setText(sub);
-        title.setTypeface(null, e.name != null && !hide ? Typeface.BOLD : Typeface.NORMAL);
+        boolean named = e.name != null && !hide;
+        title.setTypeface(named ? NAME_FACE : NORMAL_FACE);
+        title.setTextColor(c.getColor(named ? R.color.named : R.color.text));
         if (e.prot) {
             android.graphics.drawable.Drawable d = c.getDrawable(R.drawable.ic_lock_small);
             if (d != null) d.setBounds(0, 0, d.getIntrinsicWidth(), d.getIntrinsicHeight());
@@ -295,7 +300,7 @@ final class HistoryPage {
             badge.setContentDescription(c.getString(R.string.protected_title));
             badge.setBackgroundResource(R.drawable.type_badge);
             badge.setTextColor(c.getColor(R.color.accent));
-        } else if (e.created) {
+        } else if (e.created && e.format == null) {
             badge.setText(c.getString(R.string.created_marker));
             badge.setContentDescription(c.getString(R.string.created_marker));
             badge.setBackgroundResource(R.drawable.created_badge);
@@ -340,7 +345,8 @@ final class HistoryPage {
             if (e.kind == History.GROUP) {
                 TextView badge = v.findViewById(R.id.row_badge), title = v.findViewById(R.id.row_title), sub = v.findViewById(R.id.row_sub);
                 Obscured.apply(title, e.id, false);   // a recycled protected row
-                title.setTypeface(null, Typeface.NORMAL);
+                title.setTypeface(NORMAL_FACE);
+                title.setTextColor(a.getColor(R.color.text));
                 int n = h.childCount(e.id);
                 boolean unlocked = Auth.recentlyOk();
                 String first = null;   // preview: the first code that may be shown

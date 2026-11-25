@@ -23,6 +23,14 @@
             android:layout_height="match_parent"
             android:contentDescription="@string/create" />
 
+        <com.zmlworks.qrreader.CodeView
+            android:id="@+id/create_code"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:importantForAccessibility="no"
+            android:visibility="gone" />
+
         <!-- only shown when the text is too long for one QR -->
         <TextView
             android:id="@+id/qr_empty"
@@ -83,6 +91,53 @@
         android:textColor="@color/create_text"
         android:textColorHint="@color/create_dim"
         android:textSize="16sp" />
+
+    <LinearLayout
+        android:id="@+id/format_row"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/fmt_qr"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?android:attr/selectableItemBackground"
+            android:paddingStart="10dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="6dp"
+            android:text="@string/format_qr"
+            android:textColor="@color/create_save"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/fmt_code128"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?android:attr/selectableItemBackground"
+            android:paddingStart="10dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="6dp"
+            android:text="@string/format_code128"
+            android:textColor="@color/create_dim"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/fmt_ean"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?android:attr/selectableItemBackground"
+            android:paddingStart="10dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="6dp"
+            android:text="@string/format_ean13"
+            android:textColor="@color/create_dim"
+            android:textSize="13sp" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/qr_info"

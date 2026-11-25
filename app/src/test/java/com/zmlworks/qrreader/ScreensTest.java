@@ -1600,9 +1600,12 @@ public class ScreensTest {
         ShadowLooper.idleMainLooper();
     }
 
-    static boolean bold(View row) {
-        android.graphics.Typeface tf = ((TextView) row.findViewById(R.id.row_title)).getTypeface();
-        return tf != null && tf.isBold();
+    static boolean namedStyle(View row) {
+        TextView t = row.findViewById(R.id.row_title);
+        android.graphics.Typeface tf = t.getTypeface();
+        return t.getCurrentTextColor() == row.getContext().getColor(R.color.named)
+                && tf != null && tf.equals(HistoryPage.NAME_FACE)
+                && !tf.isBold();
     }
 
     @Test public void historySearchLockedUnlockedAndBothTabs() throws Exception {
@@ -1671,22 +1674,23 @@ public class ScreensTest {
         assertEquals(3, list.getAdapter().getCount());
     }
 
-    @Test public void boldNamesInTheList() throws Exception {
+    @Test public void namedNamesInTheList() throws Exception {
         MainActivity m = main(MainActivity.TAB_HISTORY);
         SwipeListView list = m.findViewById(R.id.list);
-        assertTrue("named: bold", bold(rowOf(list, wifi)));
+        assertTrue("named: blue, slightly heavy", namedStyle(rowOf(list, wifi)));
         assertEquals("Café guest Wi-Fi", ((TextView) rowOf(list, wifi).findViewById(R.id.row_title)).getText().toString());
-        assertTrue("not named: normal", !bold(rowOf(list, url)));
-        assertTrue(!bold(rowOf(list, group)));
-        // a recycled row loses the bold when the name goes
+        assertTrue("not named: normal", !namedStyle(rowOf(list, url)));
+        assertTrue(!namedStyle(rowOf(list, group)));
+        // a recycled row loses the named style when the name goes
         h.setName(wifi, null);
         m.historyPage.refresh();
         layout(m);
-        assertTrue(!bold(rowOf(list, wifi)));
+        assertTrue(!namedStyle(rowOf(list, wifi)));
+        assertEquals(m.getColor(R.color.text), ((TextView) rowOf(list, wifi).findViewById(R.id.row_title)).getCurrentTextColor());
         h.setName(wifi, "Café guest Wi-Fi");
         m.historyPage.refresh();
         layout(m);
-        shot(m, "history-bold-names", null);
+        shot(m, "history-named", null);
     }
 
     @Test public void graceShowsProtectedRowsAndReblursLive() throws Exception {
@@ -1704,7 +1708,7 @@ public class ScreensTest {
         TextView title = row.findViewById(R.id.row_title);
         assertNull("no blur in the window", title.getTag(R.id.obscured));
         assertEquals("Café guest Wi-Fi", title.getText().toString());
-        assertTrue(bold(row));
+        assertTrue(namedStyle(row));
         assertEquals("the small lock stays", " ", ((TextView) row.findViewById(R.id.row_badge)).getText().toString());
         assertEquals(View.VISIBLE, row.findViewById(R.id.row_star).getVisibility());
         shot(m, "history-grace", null);
@@ -1720,7 +1724,7 @@ public class ScreensTest {
         ShadowLooper.idleMainLooper(61, java.util.concurrent.TimeUnit.SECONDS);
         layout(m);
         checkObscured(rowOf(list, wifi), h.get(wifi), "bitmap");
-        assertTrue(!bold(rowOf(list, wifi)));
+        assertTrue(!namedStyle(rowOf(list, wifi)));
         layout(c);
         checkObscured(cl.getChildAt(0), ch.get(0), "bitmap");
         // the pill ends it early: blurred at once
@@ -1738,9 +1742,16 @@ public class ScreensTest {
         int w = 1000, fling = 1000;
         assertTrue("0.35 of the width was enough before 0.7.0", !SwipeListView.isSwipe(350, 0, w, fling));
         assertTrue(!SwipeListView.isSwipe(540, 0, w, fling));
+        assertTrue("exactly at the stop counts", SwipeListView.isSwipe(550, 0, w, fling));
         assertTrue(SwipeListView.isSwipe(560, 0, w, fling));
         assertTrue("a fling needs 0.3 of the width now", !SwipeListView.isSwipe(250, 5000, w, fling));
         assertTrue(SwipeListView.isSwipe(310, 5000, w, fling));
+        assertEquals(550f, SwipeListView.clampSwipe(900, w), 0f);
+        assertEquals(-550f, SwipeListView.clampSwipe(-900, w), 0f);
+        assertEquals(200f, SwipeListView.clampSwipe(200, w), 0f);
+        assertEquals(0.4f, SwipeListView.swipeBgAlpha(220, w), 0.001f);
+        assertEquals(1f, SwipeListView.swipeBgAlpha(550, w), 0f);
+        assertEquals(1f, SwipeListView.swipeBgAlpha(900, w), 0f);
         MainActivity m = main(MainActivity.TAB_HISTORY);
         SwipeListView list = m.findViewById(R.id.list);
         // half the width: neither delete nor copy any more
@@ -2235,7 +2246,7 @@ public class ScreensTest {
         assertTrue(!App.get().holdForeground);
         org.json.JSONObject o = new org.json.JSONObject(bytes.toString("UTF-8"));
         assertEquals(10, o.getJSONArray("items").length());
-        assertEquals("0.9.0", o.getString("appVersion"));
+        assertEquals("0.10.0", o.getString("appVersion"));
         assertEquals("Exported 10 codes", org.robolectric.shadows.ShadowToast.getTextOfLatestToast());
         // nothing protected: no prompt at all
         h.setProtected(wifi, false);
@@ -2263,5 +2274,107 @@ public class ScreensTest {
         assertNull(p.get(1).memo);
         assertTrue(!p.get(3).created);
         assertEquals(List.of(3L, 1L), p.favoriteOrder());
+    }
+    @Test public void swipeStopsAtThresholdAndFades() throws Exception {
+        MainActivity m = main(MainActivity.TAB_HISTORY);
+        SwipeListView list = m.findViewById(R.id.list);
+        layout(m);
+        View row = rowOf(list, url);
+        View content = row.findViewById(R.id.row_content);
+        View bg = row.findViewById(R.id.row_bg_right);
+        int y = row.getTop() + row.getHeight() / 2, x0 = 60, w = list.getWidth();
+        float stop = w * SwipeListView.SWIPE_FRACTION;
+        long t = android.os.SystemClock.uptimeMillis();
+        list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, x0, y, 0));
+        float mid = stop * 0.4f;
+        int steps = 20;
+        for (int i = 1; i <= steps; i++)
+            list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + i * 60L, android.view.MotionEvent.ACTION_MOVE, x0 + mid * i / steps, y, 0));
+        ShadowLooper.idleMainLooper();
+        assertTrue("below the stop", content.getTranslationX() > 0 && content.getTranslationX() < stop);
+        assertEquals(View.VISIBLE, bg.getVisibility());
+        assertTrue("faded before the stop", bg.getAlpha() > 0f && bg.getAlpha() < 1f);
+        for (int i = 1; i <= steps; i++)
+            list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + (steps + i) * 60L, android.view.MotionEvent.ACTION_MOVE, x0 + mid + (w - mid) * i / steps, y, 0));
+        ShadowLooper.idleMainLooper();
+        assertEquals(stop, content.getTranslationX(), 2f);
+        assertEquals(1f, bg.getAlpha(), 0.01f);
+        Bitmap bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);
+        m.getWindow().getDecorView().draw(new Canvas(bmp));
+        try (FileOutputStream os = new FileOutputStream(new File(OUT, "history-swipe-threshold.png"))) { bmp.compress(Bitmap.CompressFormat.PNG, 100, os); }
+        list.dispatchTouchEvent(android.view.MotionEvent.obtain(t, t + 4000, android.view.MotionEvent.ACTION_CANCEL, x0 + w, y, 0));
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        assertNotNull(h.get(url));
+    }
+
+    @Test public void createFormatSwitchAndSave() throws Exception {
+        MainActivity m = main(MainActivity.TAB_CREATE);
+        layout(m);
+        assertEquals(CreateCodec.QR, m.createPage.formatForTest());
+        View in = m.findViewById(R.id.input);
+        View formats = m.findViewById(R.id.format_row);
+        assertTrue("format switch under the input", topIn(formats) >= topIn(in) + in.getHeight());
+        m.findViewById(R.id.fmt_code128).performClick();
+        assertEquals(CreateCodec.CODE_128, m.createPage.formatForTest());
+        ((EditText) in).setText("QUIET-QR 0.10.0");
+        waitFor(() -> m.createPage.codeForTest() != null);
+        assertEquals(com.google.zxing.BarcodeFormat.CODE_128, m.createPage.codeForTest().format);
+        assertEquals(View.VISIBLE, m.findViewById(R.id.create_code).getVisibility());
+        assertEquals(View.GONE, m.findViewById(R.id.qr).getVisibility());
+        layout(m);
+        shot(m, "create-code128", null);
+        int n = h.size();
+        assertEquals(History.SAVED, m.createPage.saveToHistory());
+        History.Entry saved = h.topLevel().get(0);
+        assertTrue(saved.created);
+        assertEquals("Code 128", saved.format);
+        assertEquals("QUIET-QR 0.10.0", saved.text);
+        ((EditText) in).setText("日本");
+        waitFor(() -> m.createPage.codeForTest() == null && ((TextView) m.findViewById(R.id.qr_info)).length() > 0);
+        assertEquals(m.getString(R.string.create_invalid_code128), ((TextView) m.findViewById(R.id.qr_info)).getText().toString());
+        assertTrue(!m.findViewById(R.id.save_history).isEnabled());
+        m.findViewById(R.id.fmt_ean).performClick();
+        ((EditText) in).setText("400638133393");
+        waitFor(() -> m.createPage.codeForTest() != null);
+        assertEquals(com.google.zxing.BarcodeFormat.EAN_13, m.createPage.codeForTest().format);
+        assertEquals(History.SAVED, m.createPage.saveToHistory());
+        assertEquals("4006381333931", h.topLevel().get(0).text);
+        assertEquals("EAN-13", h.topLevel().get(0).format);
+        ((EditText) in).setText("4006381333932");
+        waitFor(() -> m.getString(R.string.create_invalid_ean_check).contentEquals(((TextView) m.findViewById(R.id.qr_info)).getText()));
+        assertTrue(!m.findViewById(R.id.save_history).isEnabled());
+        layout(m);
+        shot(m, "create-ean-invalid", null);
+    }
+
+    @Test public void recreateSaveToHistory() throws Exception {
+        RecreateActivity r = recreateFrom(nonQrDetail("QUIET-QR 0.10.0", "Code 128"));
+        layout(r);
+        TextView btn = r.findViewById(R.id.act_save_history);
+        assertEquals(View.VISIBLE, btn.getVisibility());
+        assertEquals(r.getString(R.string.save_to_history), btn.getText().toString());
+        shot(r, "recreate-save-to-history", null);
+        int n = h.size();
+        assertEquals(History.SAVED, r.saveToHistory());
+        assertEquals(n + 1, h.size());
+        History.Entry e = h.topLevel().get(0);
+        assertTrue(e.created);
+        assertEquals("Code 128", e.format);
+        assertEquals("QUIET-QR 0.10.0", e.text);
+        assertEquals("Saved to history", org.robolectric.shadows.ShadowToast.getTextOfLatestToast());
+        assertEquals(History.SAVE_DUPLICATE, r.saveToHistory());
+        assertEquals(n + 1, h.size());
+        RecreateActivity d = recreateFrom(nonQrDetail("https://github.com/zmlworks/qr-reader", "DataMatrix"));
+        assertEquals(History.SAVED, d.saveToHistory());
+        assertEquals("DataMatrix", h.topLevel().get(0).format);
+        MainActivity m = main(MainActivity.TAB_HISTORY);
+        layout(m);
+        SwipeListView list = m.findViewById(R.id.list);
+        assertEquals("DataMatrix", ((TextView) list.getChildAt(0).findViewById(R.id.row_badge)).getText().toString());
+        String sub = ((TextView) list.getChildAt(0).findViewById(R.id.row_sub)).getText().toString();
+        assertTrue(sub, sub.endsWith(" · Created"));
+        DetailActivity det = detail(h.topLevel().get(0).id);
+        assertEquals(View.GONE, det.qrForTest().getVisibility());
+        assertEquals(View.VISIBLE, det.findViewById(R.id.act_show_qr).getVisibility());
     }
 }

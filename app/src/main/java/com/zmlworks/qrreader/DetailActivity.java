@@ -130,7 +130,7 @@ public final class DetailActivity extends BaseActivity {
         if (e.created) m += " · " + getString(R.string.created_marker);
         meta.setText(m);
         QrView qr = findViewById(R.id.detail_qr);
-        QrGen.Qr code = e.created ? QrGen.encode(s) : null;
+        QrGen.Qr code = e.created && e.format == null ? QrGen.encode(s) : null;
         qr.setQr(code);
         qr.setVisibility(code != null ? View.VISIBLE : View.GONE);
         text.setText(s);

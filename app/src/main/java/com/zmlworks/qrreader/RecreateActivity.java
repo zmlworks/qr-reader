@@ -13,7 +13,8 @@ import android.widget.TextView;
  * "Recreate this code" for a non-QR item: the code in its original format (white card, quiet zones, as wide as the
  * screen, the text below it). Tapping the code asks before maximum brightness, like the Create page; tapping again
  * restores normal brightness. Only opened for codes that
- * can be recreated (the Detail page greys the row out otherwise). "Show as QR code" is always offered.
+ * can be recreated (the Detail page greys the row out otherwise). "Save to history" and "Show as QR code" are
+ * always offered.
  */
 public final class RecreateActivity extends BaseActivity {
     static final String EXTRA_FORMAT = "format", EXTRA_TEXT = "text";
@@ -49,11 +50,22 @@ public final class RecreateActivity extends BaseActivity {
         cv.setCode(code);
         ((TextView) findViewById(R.id.code_text)).setText(s);
         findViewById(R.id.code_box).setOnClickListener(v -> onCodeTap());
+        findViewById(R.id.act_save_history).setOnClickListener(v -> saveToHistory());
         findViewById(R.id.act_show_qr).setOnClickListener(v -> {
             startActivity(new Intent(this, MainActivity.class).putExtra(MainActivity.EXTRA_CREATE_TEXT, s)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
             finish();
         });
+    }
+
+    /** The shown text and format as a new Created item, like the Create page. */
+    int saveToHistory() {
+        String format = getIntent().getStringExtra(EXTRA_FORMAT), text = getIntent().getStringExtra(EXTRA_TEXT);
+        if (text == null) text = "";
+        int r = App.get().history().saveCreated(text, System.currentTimeMillis(), format);
+        if (r == History.SAVED) android.widget.Toast.makeText(this, R.string.saved_to_history, android.widget.Toast.LENGTH_SHORT).show();
+        else if (r == History.SAVE_DUPLICATE) android.widget.Toast.makeText(this, R.string.already_saved, android.widget.Toast.LENGTH_SHORT).show();
+        return r;
     }
 
     private void onCodeTap() {

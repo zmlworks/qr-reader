@@ -19,9 +19,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * One code: optional name (pen), the QR code itself for codes made on the Create page, the full text (a URL is a link:
- * tap = browser, after a confirmation if that setting is on) with a small Copy button right under it, then one action
- * per row: type-specific ones (call, mail, SMS, map, Wi-Fi) and share / web search / recreate this code (plus show as QR code for non-QR items), then the memo (saved as
+ * One code: optional name (pen), a code at the top when Recreate / Show as QR was used (remembered per item) or for a
+ * QR made on the Create page, the full text (a URL is a link: tap = browser, after a confirmation if that setting is
+ * on) with a small Copy button right under it, then one action per row: type-specific ones (call, mail, SMS, map,
+ * Wi-Fi) and share / web search / recreate this code (plus show as QR code for non-QR items), then the memo (saved as
  * you type). Lock (protection), name, favourite and delete (with UNDO in the history) are in the top bar.
  * A protected item shows nothing until the user authenticates ({@link Auth}); its window is FLAG_SECURE (no
  * screenshots, blank in Recents).
@@ -41,6 +42,11 @@ public final class DetailActivity extends BaseActivity {
     private final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable saveMemo = this::flushMemo;
     static final long MEMO_SAVE_DELAY_MS = 400;
+    private boolean bright;
+    private TextView codeHint;
+    private final Runnable hideHint = () -> { if (codeHint != null) codeHint.setVisibility(View.GONE); };
+    /** last brightness dialog (tests) */
+    AlertDialog brightDialog;
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -51,6 +57,8 @@ public final class DetailActivity extends BaseActivity {
         lock = findViewById(R.id.btn_lock);
         findViewById(R.id.btn_back).setOnClickListener(v -> finish());
         findViewById(R.id.btn_unlock).setOnClickListener(v -> unlock());
+        codeHint = findViewById(R.id.code_hint);
+        findViewById(R.id.hide_code).setOnClickListener(v -> hideCode());
         memo = findViewById(R.id.memo);
         memo.addTextChangedListener(new android.text.TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int st, int c, int af) { }
@@ -73,6 +81,7 @@ public final class DetailActivity extends BaseActivity {
 
     @Override protected void onPause() {
         flushMemo();
+        setBright(false, false);
         super.onPause();
     }
 
@@ -98,7 +107,7 @@ public final class DetailActivity extends BaseActivity {
             findViewById(R.id.locked).setVisibility(View.GONE);
             findViewById(R.id.name).setVisibility(View.GONE);
             for (int id : new int[]{R.id.btn_lock, R.id.btn_name, R.id.btn_fav, R.id.btn_delete, R.id.actions, R.id.copy_card, R.id.act_copy,
-                    R.id.memo, R.id.memo_label, R.id.detail_qr})
+                    R.id.memo, R.id.memo_label, R.id.code_box, R.id.hide_code, R.id.detail_qr, R.id.detail_code})
                 findViewById(id).setVisibility(View.GONE);
             return;
         }
@@ -129,10 +138,7 @@ public final class DetailActivity extends BaseActivity {
         }
         if (e.created) m += " · " + getString(R.string.created_marker);
         meta.setText(m);
-        QrView qr = findViewById(R.id.detail_qr);
-        QrGen.Qr code = e.created && e.format == null ? QrGen.encode(s) : null;
-        qr.setQr(code);
-        qr.setVisibility(code != null ? View.VISIBLE : View.GONE);
+        renderCode();
         text.setText(s);
         renderMemo();
         boolean link = t.kind == ContentType.Kind.URL;
@@ -177,25 +183,93 @@ public final class DetailActivity extends BaseActivity {
         findViewById(R.id.act_copy).setOnClickListener(v -> Actions.copy(this, s));
         findViewById(R.id.act_share).setOnClickListener(v -> Actions.share(this, s));
         findViewById(R.id.act_search).setOnClickListener(v -> Actions.search(this, s));
-        // "Recreate this code": a QR item opens the Create page; a non-QR item is redrawn in its own format,
-        // with "Show as QR code" as a separate row
+        // "Recreate this code" / "Show as QR code": show the symbol at the top of this page and remember the mode
         final boolean nonQr = e.format != null;
-        final View.OnClickListener asQr = v -> {
-            startActivity(new Intent(this, MainActivity.class).putExtra(MainActivity.EXTRA_CREATE_TEXT, s)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
-            finish();
-        };
         TextView recreate = findViewById(R.id.act_qr);
         recreate.setCompoundDrawablesRelativeWithIntrinsicBounds(nonQr ? R.drawable.ic_barcode : R.drawable.ic_qr, 0, 0, 0);
         boolean canRecreate = !nonQr || canRecreate(e.format, s);
         recreate.setEnabled(canRecreate);
         recreate.setAlpha(canRecreate ? 1f : 0.38f);   // unsupported format or text: greyed out, not tappable
-        recreate.setOnClickListener(!canRecreate ? null : nonQr ? v -> startActivity(RecreateActivity.intent(this, e.format, s)) : asQr);
+        recreate.setOnClickListener(!canRecreate ? null : v -> showCode(nonQr ? History.SHOWN_CODE : History.SHOWN_QR));
         recreate.setClickable(canRecreate);
         View showQr = findViewById(R.id.act_show_qr);
         showQr.setVisibility(nonQr ? View.VISIBLE : View.GONE);
-        showQr.setOnClickListener(asQr);
+        showQr.setOnClickListener(v -> showCode(History.SHOWN_QR));
     }
+
+    private void showCode(String mode) {
+        App.get().history().setShown(e.id, mode);
+        renderCode();
+    }
+
+    private void hideCode() {
+        setBright(false, false);
+        App.get().history().setShown(e.id, null);
+        renderCode();
+    }
+
+    /**
+     * Code at the top: an explicit Recreate / Show as QR choice ({@link History.Entry#shown}), or the QR of a
+     * Created QR item when nothing was chosen. Hide and tap-for-brightness apply only to an explicit choice.
+     */
+    private void renderCode() {
+        boolean wantQr = History.SHOWN_QR.equals(e.shown) || (e.shown == null && e.created && e.format == null);
+        boolean wantCode = History.SHOWN_CODE.equals(e.shown) && e.format != null && canRecreate(e.format, e.text);
+        QrView qr = findViewById(R.id.detail_qr);
+        CodeView cv = findViewById(R.id.detail_code);
+        View box = findViewById(R.id.code_box);
+        View hide = findViewById(R.id.hide_code);
+        if (wantQr) {
+            qr.setQr(QrGen.encode(e.text));
+            qr.setVisibility(View.VISIBLE);
+            cv.setCode(null);
+            cv.setVisibility(View.GONE);
+        } else if (wantCode) {
+            try { cv.setCode(Recreate.encode(e.format, e.text)); } catch (Recreate.InvalidContent ex) { cv.setCode(null); }
+            cv.setVisibility(cv.hasCode() ? View.VISIBLE : View.GONE);
+            qr.setQr(null);
+            qr.setVisibility(View.GONE);
+            if (!cv.hasCode()) wantCode = false;
+        } else {
+            qr.setQr(null);
+            qr.setVisibility(View.GONE);
+            cv.setCode(null);
+            cv.setVisibility(View.GONE);
+        }
+        boolean on = wantQr || wantCode;
+        box.setVisibility(on ? View.VISIBLE : View.GONE);
+        hide.setVisibility(e.shown != null && on ? View.VISIBLE : View.GONE);
+        boolean tap = e.shown != null && on;
+        box.setOnClickListener(tap ? v -> onCodeTap() : null);
+        box.setClickable(tap);
+        box.setFocusable(tap);
+        if (!tap) setBright(false, false);
+    }
+
+    private void onCodeTap() {
+        if (bright) { setBright(false, true); return; }
+        brightDialog = new AlertDialog.Builder(this)
+                .setTitle(R.string.brightness_confirm_title)
+                .setPositiveButton(R.string.ok, (d, w) -> setBright(true, true))
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    void setBright(boolean on, boolean showHint) {
+        bright = on;
+        android.view.WindowManager.LayoutParams lp = getWindow().getAttributes();
+        lp.screenBrightness = on ? android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
+                : android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
+        getWindow().setAttributes(lp);
+        if (!showHint || codeHint == null) return;
+        codeHint.setText(on ? R.string.brightness_max : R.string.brightness_normal);
+        codeHint.setVisibility(View.VISIBLE);
+        ui.removeCallbacks(hideHint);
+        ui.postDelayed(hideHint, 1000);
+    }
+
+    boolean brightForTest() { return bright; }
+    CodeView codeForTest() { return findViewById(R.id.detail_code); }
 
     /** whether a non-QR item can be redrawn in its own format (tries the encode) */
     static boolean canRecreate(String format, String text) {

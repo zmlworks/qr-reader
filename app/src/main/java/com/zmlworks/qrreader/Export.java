@@ -76,6 +76,7 @@ final class Export {
             o.put("favorite", e.fav);
             o.put("protected", e.prot);
             o.put("created", e.created);
+            o.put("shown", orNull(e.shown));
             o.put("group", e.kind == History.CHILD ? (Object) e.parent : JSONObject.NULL);
             items.put(o);
         }

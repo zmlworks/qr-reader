@@ -33,6 +33,8 @@ public final class History {
         public String memo;
         /** made on the Create page ("Save to history"), not scanned */
         public boolean created;
+        /** what the detail page shows at the top: {@link #SHOWN_QR}, {@link #SHOWN_CODE}, or null (not shown) */
+        public String shown;
 
         Entry(long id, long parent, int kind, long time, boolean fav, String text) {
             this.id = id; this.parent = parent; this.kind = kind; this.time = time; this.fav = fav; this.text = text;
@@ -235,6 +237,18 @@ public final class History {
         if (e != null && e.kind != GROUP && e.prot != on) { e.prot = on; changed(); }
     }
 
+    /** Detail page: show a QR, the original format, or nothing (null / blank clears it). */
+    public static final String SHOWN_QR = "QR", SHOWN_CODE = "CODE";
+
+    public void setShown(long id, String shown) {
+        Entry e = get(id);
+        if (e == null || e.kind == GROUP) return;
+        if (shown != null && !SHOWN_QR.equals(shown) && !SHOWN_CODE.equals(shown)) shown = null;
+        if (shown == null ? e.shown == null : shown.equals(e.shown)) return;
+        e.shown = shown;
+        changed();
+    }
+
     // ---------------- search ----------------
 
     /** Lower-cased words of a query (empty = no filter). */
@@ -356,7 +370,8 @@ public final class History {
 
     // ---------------- persistence: one line per entry, tab separated, text escaped ----------------
     // QRH4 (0.7.0): header "QRH4 nextId favOrder" (favOrder = comma-separated ids, may be empty);
-    //   lines: id parent kind time flags format name memo text; flags: 1 = favourite, 2 = protected, 4 = created.
+    //   lines: id parent kind time flags format name memo text; flags: 1 = favourite, 2 = protected, 4 = created,
+    //   8 = show as QR, 16 = show original format. Missing show bits mean the code is not shown.
     // Older files are still read: QRH3 (0.3.0-0.6.0: no memo, no favourites order), QRH2 (0.2.0: id parent kind time fav
     // name text), QRH1 (0.1.0: no name). New fields default to: no memo, not created, favourites newest first.
     public String serialize() {
@@ -370,7 +385,8 @@ public final class History {
         sorted.sort(Comparator.comparingLong(x -> x.id));
         for (Entry e : sorted) {
             b.append(e.id).append('\t').append(e.parent).append('\t').append(e.kind).append('\t').append(e.time)
-                    .append('\t').append((e.fav ? 1 : 0) | (e.prot ? 2 : 0) | (e.created ? 4 : 0))
+                    .append('\t').append((e.fav ? 1 : 0) | (e.prot ? 2 : 0) | (e.created ? 4 : 0)
+                            | (SHOWN_QR.equals(e.shown) ? 8 : 0) | (SHOWN_CODE.equals(e.shown) ? 16 : 0))
                     .append('\t').append(e.format == null ? "" : escape(e.format))
                     .append('\t').append(e.name == null ? "" : escape(e.name))
                     .append('\t').append(e.memo == null ? "" : escape(e.memo))
@@ -402,6 +418,8 @@ public final class History {
                         (flags & 1) != 0, unescape(f[cols - 1]));
                 e.prot = ver >= 3 && (flags & 2) != 0;
                 e.created = ver >= 4 && (flags & 4) != 0;
+                if ((flags & 8) != 0) e.shown = SHOWN_QR;
+                else if ((flags & 16) != 0) e.shown = SHOWN_CODE;
                 if (ver >= 3 && !f[5].isEmpty()) e.format = unescape(f[5]);
                 if (ver >= 2 && !f[ver >= 4 ? 6 : cols - 2].isEmpty()) e.name = unescape(f[ver >= 4 ? 6 : cols - 2]);
                 if (ver >= 4 && !f[7].isEmpty()) e.memo = unescape(f[7]);

@@ -89,14 +89,67 @@
                 android:textColor="@color/dim"
                 android:textSize="13sp" />
 
-            <!-- a code made on the Create page: its QR code first -->
-            <com.zmlworks.qrreader.QrView
-                android:id="@+id/detail_qr"
-                android:layout_width="220dp"
-                android:layout_height="220dp"
+            <!-- Recreate / Show as QR, or a Created QR: the symbol at the top of this same page -->
+            <FrameLayout
+                android:id="@+id/code_box"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/code_card_bg"
+                android:contentDescription="@string/brightness_toggle_code"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingTop="16dp"
+                    android:paddingBottom="16dp">
+
+                    <com.zmlworks.qrreader.QrView
+                        android:id="@+id/detail_qr"
+                        android:layout_width="220dp"
+                        android:layout_height="220dp"
+                        android:layout_gravity="center_horizontal"
+                        android:contentDescription="@string/created_qr"
+                        android:visibility="gone" />
+
+                    <com.zmlworks.qrreader.CodeView
+                        android:id="@+id/detail_code"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:importantForAccessibility="no"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/code_hint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:background="@drawable/pill_bg"
+                    android:paddingStart="16dp"
+                    android:paddingTop="8dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="8dp"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/hide_code"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
                 android:layout_gravity="center_horizontal"
-                android:layout_marginBottom="12dp"
-                android:contentDescription="@string/created_qr"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="8dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="@string/hide_code"
+                android:textColor="@color/accent"
+                android:textSize="14sp"
                 android:visibility="gone" />
 
             <TextView

@@ -76,6 +76,7 @@
     <string name="search_web">Search the web</string>
     <string name="recreate_code">Recreate this code</string>
     <string name="show_as_qr">Show as QR code</string>
+    <string name="hide_code">Hide</string>
     <string name="brightness_toggle_code">Barcode. Tap to switch the screen brightness</string>
     <string name="rename">Name this item</string>
     <string name="name_hint">Name</string>

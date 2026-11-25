@@ -150,6 +150,33 @@ public class HistoryTest {
         assertEquals("kept", h.get(a.id).name);
     }
 
+    @Test public void shownState() {
+        History h = new History();
+        History.Entry a = h.addSingle("hello", 1);
+        assertNull(a.shown);
+        h.setShown(a.id, History.SHOWN_QR);
+        assertEquals(History.SHOWN_QR, a.shown);
+        h.setShown(a.id, History.SHOWN_CODE);
+        assertEquals(History.SHOWN_CODE, a.shown);
+        History p = History.parse(h.serialize());
+        assertEquals(History.SHOWN_CODE, p.get(a.id).shown);
+        assertEquals(h.serialize(), p.serialize());
+        h.setShown(a.id, "nope");   // unknown value clears
+        assertNull(a.shown);
+        h.setShown(a.id, History.SHOWN_QR);
+        h.setShown(a.id, null);
+        assertNull(a.shown);
+        History.Entry g = h.newGroup(2);
+        h.setShown(g.id, History.SHOWN_QR);   // groups have no shown
+        assertNull(g.shown);
+        h.setShown(a.id, History.SHOWN_QR);
+        h.undo(h.remove(a.id));
+        assertEquals(History.SHOWN_QR, h.get(a.id).shown);
+        // a file without the bits loads as not shown
+        History old = History.parse("QRH4\t2\t\n1\t0\t0\t1\t0\t\t\t\thello\n");
+        assertNull(old.get(1).shown);
+    }
+
     @Test public void readsVersion010Files() {
         History p = History.parse("QRH1\t4\n1\t0\t0\t100\t1\tline\\nbreak\n2\t0\t1\t200\t0\t\n3\t2\t2\t201\t0\tchild\n");
         assertEquals(3, p.size());
